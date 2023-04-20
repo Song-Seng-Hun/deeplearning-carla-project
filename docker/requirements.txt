@@ -9,3 +9,7 @@ matplotlib
 open3d
 Pillow
 carla
+opencv-python==4.1.2.30
+tensorflow==2.3.0
+torch
+torchvision
