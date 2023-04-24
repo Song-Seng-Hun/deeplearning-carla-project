@@ -106,14 +106,15 @@ def main():
 
     world.set_weather(carla.WeatherParameters.ClearNoon)
 
+    #시뮬레이션 내에서 사용 가능한 모든 차량 블루프린트를 가져오는 데 사용됩니다
     bp_lib = world.get_blueprint_library()
     vehicle_bp = bp_lib.filter('vehicle.tesla.model3')[0]
 
     transform = carla.Transform()
 
-    transform.location.x = -110
-    transform.location.y = 60
-    transform.location.z = 20
+    transform.location.x = 0
+    transform.location.y = 13
+    transform.location.z = 0.5
 
     transform.rotation.yaw = 180
     transform.rotation.pitch = 0
@@ -121,6 +122,7 @@ def main():
 
     vehicle = world.spawn_actor(vehicle_bp, transform)
 
+    #서버 카메라
     spectator = world.get_spectator()
     sp_transform = carla.Transform(transform.location + carla.Location(z=30, x=-25),
         carla.Rotation(yaw=90, pitch=-90))
@@ -130,12 +132,27 @@ def main():
     control.throttle = 0.3
     vehicle.apply_control(control)
 
+    # 차량 위치 출력
+    vehicle_location = vehicle.get_location()
+    print( vehicle_location)
+
+    # 차량 x좌표 출력
+    vehicle_x = vehicle_location.x
+    print( vehicle_x)
+
+    vehicle_y = vehicle_location.y
+    print( vehicle_y)
+
+
+    # 차량 카메라 위치
     rgb_camera_bp = world.get_blueprint_library().find('sensor.camera.rgb')
-    cam_transform = carla.Transform(carla.Location(x=0.8, z=1.7))
+    cam_transform = carla.Transform(carla.Location(x=0.3, z=1.7))
     camera = world.spawn_actor(rgb_camera_bp, 
         cam_transform,
         attach_to=vehicle,
         attachment_type=carla.AttachmentType.Rigid)
+    
+
     
     display = pygame.display.set_mode(
         (1200, 600),
@@ -144,7 +161,25 @@ def main():
 
     camera.listen(lambda image: handle_image(display, image))
 
-    time.sleep(15)
+    while True :
+        print('start degree : ',vehicle.get_transform())
+        if vehicle.get_location().x < -29.1 :
+            # 차량 우회전
+            control = carla.VehicleControl()
+            control.throttle = 0.3  # 가속도 설정
+            control.steer = 0.22  # 우회전을 위한 조향각 설정
+            vehicle.apply_control(control)
+            #print('start turn degree : ',vehicle.get_transform().rotation.yaw)
+            if abs(vehicle.get_transform().rotation.yaw) <= 93.0 :
+                control = carla.VehicleControl()
+                control.throttle = 0.3  # 가속도 설정
+                control.steer = 0  # 우회전을 위한 조향각 설정
+                vehicle.apply_control(control)
+                #print('stop turn degree : ',vehicle.get_transform().rotation.yaw)
+                break
+            
+    time.sleep(4)
+    print('end degree : ',vehicle.get_transform().rotation.yaw)
 
     camera.destroy()
     vehicle.destroy()
