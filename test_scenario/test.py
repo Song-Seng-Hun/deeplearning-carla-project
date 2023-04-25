@@ -4,23 +4,33 @@ import pygame
 import numpy as np
 import argparse
 import logging
+import random
 
-VIEW_WIDTH = 1920//2
-VIEW_HEIGHT = 1080//2
+VIEW_WIDTH = 1280
+VIEW_HEIGHT = 720
 VIEW_FOV = 120
 
 
 def handle_image(disp, image):
-    #image.save_to_disk('output/%05d.png' % image.frame, 
-    #   carla.ColorConverter.Raw)
-    org_array = np.frombuffer(image.raw_data, dtype=np.dtype('uint8'))
-    array = np.reshape(org_array, (image.height, image.width, 4))
+    
+    array = np.frombuffer(image.raw_data, dtype=np.dtype('uint8'))
+    array = np.reshape(array, (image.height, image.width, 4))
     array = array[:, :, :3]
     array = array[:,:,::-1]
     array = array.swapaxes(0,1)
     surface = pygame.surfarray.make_surface(array)
+    disp.blit(surface, (0,0))
 
-    disp.blit(surface, (200,0))
+    x1, y1 = 120, 130
+    x2, y2 = 200, 300
+    width, height = abs(x2-x1), abs(y2-y1)
+    font = pygame.font.SysFont(None, 48)
+    text_surface = font.render("Hello World", True, (255, 0, 0))
+    text_position = (min(x1,x2), min(y1,y2)-30)
+    square_position = (min(x1,x2), min(y1,y2))
+    pygame.draw.rect(disp, (0, 255, 0), (square_position[0], square_position[1], width, height), 3)
+    disp.blit(text_surface, text_position)
+
     pygame.display.flip()
 
 
@@ -92,7 +102,8 @@ def main():
 
     print(__doc__)
 
-
+    pygame.init()
+    pygame.font.init()
 
     try:
         client = carla.Client(args.host, args.port)
@@ -163,16 +174,16 @@ def main():
     control.throttle = 0.3
     vehicle.apply_control(control)
 
-    # 차량 위치 출력
-    vehicle_location = vehicle.get_location()
-    print( vehicle_location)
+    # # 차량 위치 출력
+    # vehicle_location = vehicle.get_location()
+    # print( vehicle_location)
 
-    # 차량 x좌표 출력
-    vehicle_x = vehicle_location.x
-    print( vehicle_x)
+    # # 차량 x좌표 출력
+    # vehicle_x = vehicle_location.x
+    # print( vehicle_x)
 
-    vehicle_y = vehicle_location.y
-    print( vehicle_y)
+    # vehicle_y = vehicle_location.y
+    # print( vehicle_y)
 
 
     # 차량 카메라 위치
@@ -189,7 +200,7 @@ def main():
 
     
     display = pygame.display.set_mode(
-        (1200, 600),
+        (1280, 720),
         pygame.HWSURFACE | pygame.DOUBLEBUF
     )
 
@@ -224,12 +235,12 @@ def main():
         world.tick()
             
     time.sleep(4)
-    print('end degree : ',vehicle.get_transform().rotation.yaw)
 
     camera.destroy()
     vehicle.destroy()
     ped.destroy()
     pygame.quit()
+    pygame.font.quit()
 
 
 if __name__ == '__main__':
