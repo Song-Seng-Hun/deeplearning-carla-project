@@ -5,6 +5,10 @@ import numpy as np
 import argparse
 import logging
 
+VIEW_WIDTH = 1920//2
+VIEW_HEIGHT = 1080//2
+VIEW_FOV = 120
+
 
 def handle_image(disp, image):
     #image.save_to_disk('output/%05d.png' % image.frame, 
@@ -104,7 +108,34 @@ def main():
         logging.error(ex)
         pygame.quit()
 
+    actor_list = []
+
     world.set_weather(carla.WeatherParameters.ClearNoon)
+
+    #===========================================================================================
+    # pedestrian code
+
+    world.set_pedestrians_seed(1235)
+    ped_bp = random.choice(world.get_blueprint_library().filter("walker.pedestrian.*"))
+
+    ped_start_location = carla.Location(x=-34.3, y=2.7, z=0.2)
+    ped_start_rotation = carla.Rotation(pitch=-0.3, yaw=180.0, roll=0.0)
+    start_trans = carla.Transform(ped_start_location, ped_start_rotation)
+
+    ped_end_location = carla.Location(x=-60.3, y=2.7, z=0.2)
+    ped_end_rotation = carla.Rotation(pitch=-0.3, yaw=-180.0, roll=0.0)
+    dst_trans = carla.Transform(ped_end_location, ped_end_rotation)
+
+    ped = world.spawn_actor(ped_bp, start_trans)
+    walker_controller_bp = world.get_blueprint_library().find('controller.ai.walker')
+    controller = world.spawn_actor(walker_controller_bp, carla.Transform(), ped)
+    controller.start()
+    controller.set_max_speed(2)
+
+    # adding an actor to an actor list
+    actor_list.append(ped)
+    actor_list.append(controller)
+    #===========================================================================================
 
     #시뮬레이션 내에서 사용 가능한 모든 차량 블루프린트를 가져오는 데 사용됩니다
     bp_lib = world.get_blueprint_library()
@@ -146,6 +177,9 @@ def main():
 
     # 차량 카메라 위치
     rgb_camera_bp = world.get_blueprint_library().find('sensor.camera.rgb')
+    rgb_camera_bp.set_attribute('image_size_x', str(VIEW_WIDTH))
+    rgb_camera_bp.set_attribute('image_size_y', str(VIEW_HEIGHT))
+    rgb_camera_bp.set_attribute('fov', str(VIEW_FOV))
     cam_transform = carla.Transform(carla.Location(x=0.3, z=1.7))
     camera = world.spawn_actor(rgb_camera_bp, 
         cam_transform,
@@ -162,7 +196,16 @@ def main():
     camera.listen(lambda image: handle_image(display, image))
 
     while True :
-        print('start degree : ',vehicle.get_transform())
+
+        x = ped.get_location().x
+        y = ped.get_location().y        # restrict Unexpected movement
+        
+        if x < -62.0 or y < 0.5:
+            controller.go_to_location(ped_start_location)
+            # target_location = ped_start_location
+        elif x > -32.0 or y < 0.5:
+            controller.go_to_location(ped_end_location)
+
         if vehicle.get_location().x < -29.1 :
             # 차량 우회전
             control = carla.VehicleControl()
@@ -170,19 +213,23 @@ def main():
             control.steer = 0.22  # 우회전을 위한 조향각 설정
             vehicle.apply_control(control)
             #print('start turn degree : ',vehicle.get_transform().rotation.yaw)
-            if abs(vehicle.get_transform().rotation.yaw) <= 93.0 :
-                control = carla.VehicleControl()
-                control.throttle = 0.3  # 가속도 설정
-                control.steer = 0  # 우회전을 위한 조향각 설정
-                vehicle.apply_control(control)
-                #print('stop turn degree : ',vehicle.get_transform().rotation.yaw)
-                break
+        if abs(vehicle.get_transform().rotation.yaw) <= 93.0 :
+            control = carla.VehicleControl()
+            control.throttle = 0.3  # 가속도 설정
+            control.steer = 0  # 우회전을 위한 조향각 설정
+            vehicle.apply_control(control)
+            #print('stop turn degree : ',vehicle.get_transform().rotation.yaw)
+            break
+
+        world.tick()
             
     time.sleep(4)
     print('end degree : ',vehicle.get_transform().rotation.yaw)
 
     camera.destroy()
     vehicle.destroy()
+    ped.destroy()
+    pygame.quit()
 
 
 if __name__ == '__main__':
