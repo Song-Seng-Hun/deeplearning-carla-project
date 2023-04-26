@@ -6,6 +6,9 @@ import argparse
 import logging
 import random
 
+from ultralytics import YOLO
+model = YOLO("/home/carla/PythonAPI/CARLA-project/test_scenario/best.pt")
+
 VIEW_WIDTH = 1280
 VIEW_HEIGHT = 720
 VIEW_FOV = 120
@@ -15,23 +18,32 @@ def handle_image(disp, image):
     
     array = np.frombuffer(image.raw_data, dtype=np.dtype('uint8'))
     array = np.reshape(array, (image.height, image.width, 4))
-    array = array[:, :, :3]
-    array = array[:,:,::-1]
+
+    yolo_array = array[:, :, :3]
+
+    array = yolo_array[:,:,::-1]
+
     array = array.swapaxes(0,1)
     surface = pygame.surfarray.make_surface(array)
     disp.blit(surface, (0,0))
 
-    x1, y1 = 120, 130
-    x2, y2 = 200, 300
-    width, height = abs(x2-x1), abs(y2-y1)
+    result = model(yolo_array)[0]
+    
     font = pygame.font.SysFont(None, 48)
-    text_surface = font.render("Hello World", True, (255, 0, 0))
-    text_position = (min(x1,x2), min(y1,y2)-30)
-    square_position = (min(x1,x2), min(y1,y2))
-    pygame.draw.rect(disp, (0, 255, 0), (square_position[0], square_position[1], width, height), 3)
-    disp.blit(text_surface, text_position)
 
+    boxes = result.boxes.boxes
+    for box in boxes :
+        x1, y1, x2, y2,c,idx = box
+        width, height = abs(x2-x1), abs(y2-y1)
+        text_surface = font.render(result.names[int(idx)], True, (255, 0, 0))
+        text_position = (min(x1,x2), min(y1,y2)-30)
+        square_position = (min(x1,x2), min(y1,y2))
+        pygame.draw.rect(disp, (0, 255, 0), (square_position[0], square_position[1], width, height), 3)
+        disp.blit(text_surface, text_position)
+        
+    
     pygame.display.flip()
+
 
 
 def main():
