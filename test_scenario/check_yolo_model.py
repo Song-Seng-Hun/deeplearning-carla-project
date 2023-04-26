@@ -44,6 +44,7 @@ try:
 except IndexError:
     pass
 import carla
+from carla import ColorConverter as cc
 
 # ==============================================================================
 # -- imports -------------------------------------------------------------------
@@ -73,6 +74,8 @@ VIEW_HEIGHT = 1080//2
 VIEW_FOV = 90
 HOSTIP = 'localhost'
 BB_COLOR = (248, 64, 24)
+
+depth_array = []
 
 # ==============================================================================
 # -- BasicSynchronousClient ----------------------------------------------------
@@ -165,7 +168,16 @@ class BasicSynchronousClient(object):
         camera_transform = carla.Transform(carla.Location(x=1.6, z=1.7), carla.Rotation(pitch=0))
         self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform, attach_to=self.car)
         weak_self = weakref.ref(self)
+        self.depth_camera_bp = self.world.get_blueprint_library().find('sensor.camera.depth')
+        self.depth_camera_bp.set_attribute('image_size_x', str(VIEW_WIDTH))
+        self.depth_camera_bp.set_attribute('image_size_y', str(VIEW_HEIGHT))
+        self.depth_camera_bp.set_attribute('fov', str(VIEW_FOV))
+        self.depth_camera = self.world.spawn_actor(self.depth_camera_bp, 
+        camera_transform,
+        attach_to=self.car,
+        attachment_type=carla.AttachmentType.Rigid)
         self.camera.listen(lambda image: weak_self().set_image(weak_self, image))
+        self.depth_camera.listen(lambda image: self.set_depth(image))
 
         calibration = np.identity(3)
         calibration[0, 2] = VIEW_WIDTH / 2.0
@@ -208,11 +220,19 @@ class BasicSynchronousClient(object):
             for box in boxes :
                 x1, y1, x2, y2,c,idx = box
                 width, height = abs(x2-x1), abs(y2-y1)
-                text_surface = font.render(result.names[int(idx)], True, (255, 0, 0))
+                text_surface = font.render(result.names[int(idx)]+", depth : "+str(depth_array[int(min(y1,y2)+height//2)][int(min(x1,x2)+width//2)]), True, (255, 0, 0))
                 text_position = (min(x1,x2), min(y1,y2)-30)
                 square_position = (min(x1,x2), min(y1,y2))
                 pygame.draw.rect(display, (0, 255, 0), (square_position[0], square_position[1], width, height), 3)
                 display.blit(text_surface, text_position)
+
+    def set_depth(self, image):
+        global depth_array
+        image.convert(cc.LogarithmicDepth)
+        array = np.frombuffer(image.raw_data, dtype=np.dtype('uint8'))
+        array = np.reshape(array, (image.height, image.width, 4))
+        depth_array = array[:, :, 0]
+        # depth_array = depth_array.swapaxes(0,1)
 
     def game_loop(self, num_classes, input_size, graph):
         """
@@ -221,6 +241,7 @@ class BasicSynchronousClient(object):
         
         try:
             pygame.init()
+            pygame.font.init()
             
             self.client = carla.Client("localhost", 2000)
             self.client.set_timeout(2.0)
@@ -260,7 +281,9 @@ class BasicSynchronousClient(object):
             self.set_synchronous_mode(False)
             self.camera.destroy()
             self.car.destroy()
+            self.depth_camera.destroy()
             pygame.quit()
+            pygame.font.quit()
 
 
 # ==============================================================================
