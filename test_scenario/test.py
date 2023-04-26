@@ -1,4 +1,5 @@
 import carla
+from carla import ColorConverter as cc
 import time
 import pygame
 import numpy as np
@@ -12,13 +13,12 @@ model = YOLO("/home/carla/PythonAPI/CARLA-project/test_scenario/best.pt")
 VIEW_WIDTH = 1280
 VIEW_HEIGHT = 720
 VIEW_FOV = 120
-
+depth_array = []
 
 def handle_image(disp, image):
     
     array = np.frombuffer(image.raw_data, dtype=np.dtype('uint8'))
     array = np.reshape(array, (image.height, image.width, 4))
-
     yolo_array = array[:, :, :3]
 
     array = yolo_array[:,:,::-1]
@@ -26,7 +26,6 @@ def handle_image(disp, image):
     array = array.swapaxes(0,1)
     surface = pygame.surfarray.make_surface(array)
     disp.blit(surface, (0,0))
-
     result = model(yolo_array)[0]
     
     font = pygame.font.SysFont(None, 48)
@@ -35,7 +34,7 @@ def handle_image(disp, image):
     for box in boxes :
         x1, y1, x2, y2,c,idx = box
         width, height = abs(x2-x1), abs(y2-y1)
-        text_surface = font.render(result.names[int(idx)], True, (255, 0, 0))
+        text_surface = font.render(result.names[int(idx)]+", depth : "+str(depth_array[int(min(y1,y2)+height//2)][int(min(x1,x2)+width//2)]), True, (255, 0, 0))
         text_position = (min(x1,x2), min(y1,y2)-30)
         square_position = (min(x1,x2), min(y1,y2))
         pygame.draw.rect(disp, (0, 255, 0), (square_position[0], square_position[1], width, height), 3)
@@ -44,6 +43,13 @@ def handle_image(disp, image):
     
     pygame.display.flip()
 
+def set_depth(image):
+    global depth_array
+    image.convert(cc.LogarithmicDepth)
+    array = np.frombuffer(image.raw_data, dtype=np.dtype('uint8'))
+    array = np.reshape(array, (image.height, image.width, 4))
+    depth_array = array[:, :, 0]
+    # depth_array = depth_array.swapaxes(0,1)
 
 
 def main():
@@ -203,12 +209,19 @@ def main():
     rgb_camera_bp.set_attribute('image_size_x', str(VIEW_WIDTH))
     rgb_camera_bp.set_attribute('image_size_y', str(VIEW_HEIGHT))
     rgb_camera_bp.set_attribute('fov', str(VIEW_FOV))
+    depth_camera_bp = world.get_blueprint_library().find('sensor.camera.depth')
+    depth_camera_bp.set_attribute('image_size_x', str(VIEW_WIDTH))
+    depth_camera_bp.set_attribute('image_size_y', str(VIEW_HEIGHT))
+    depth_camera_bp.set_attribute('fov', str(VIEW_FOV))
     cam_transform = carla.Transform(carla.Location(x=0.3, z=1.7))
     camera = world.spawn_actor(rgb_camera_bp, 
         cam_transform,
         attach_to=vehicle,
         attachment_type=carla.AttachmentType.Rigid)
-    
+    depth_camera = world.spawn_actor(depth_camera_bp, 
+        cam_transform,
+        attach_to=vehicle,
+        attachment_type=carla.AttachmentType.Rigid)
 
     
     display = pygame.display.set_mode(
@@ -217,7 +230,8 @@ def main():
     )
 
     camera.listen(lambda image: handle_image(display, image))
-
+    depth_camera.listen(lambda image: set_depth(image))
+    
     while True :
 
         x = ped.get_location().x
@@ -247,7 +261,7 @@ def main():
         world.tick()
             
     time.sleep(4)
-
+    depth_camera.destroy()
     camera.destroy()
     vehicle.destroy()
     ped.destroy()
