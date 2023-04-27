@@ -78,7 +78,7 @@ except IndexError:
 # ==============================================================================
 # -- imports -------------------------------------------------------------------
 # ==============================================================================
-
+import time
 
 import carla
 
@@ -116,6 +116,7 @@ try:
     from pygame.locals import K_b
     from pygame.locals import K_c
     from pygame.locals import K_d
+    from pygame.locals import K_e
     from pygame.locals import K_f
     from pygame.locals import K_g
     from pygame.locals import K_h
@@ -148,6 +149,7 @@ except ImportError:
 # -- Global functions ----------------------------------------------------------
 # ==============================================================================
 
+scenario_flag = False
 
 def find_weather_presets():
     rgx = re.compile('.+?(?:(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|$)')
@@ -244,16 +246,18 @@ class World(object):
         cam_index = self.camera_manager.index if self.camera_manager is not None else 0
         cam_pos_index = self.camera_manager.transform_index if self.camera_manager is not None else 0
         # Get a random blueprint.
-        blueprint = random.choice(get_actor_blueprints(self.world, self._actor_filter, self._actor_generation))
+        # blueprint = random.choice(get_actor_blueprints(self.world, self._actor_filter, self._actor_generation))
+        blueprint = self.world.get_blueprint_library().filter('vehicle.tesla.model3')[0]
         blueprint.set_attribute('role_name', self.actor_role_name)
-        if blueprint.has_attribute('color'):
-            color = random.choice(blueprint.get_attribute('color').recommended_values)
-            blueprint.set_attribute('color', color)
+        # if blueprint.has_attribute('color'):
+        #     color = random.choice(blueprint.get_attribute('color').recommended_values)
+        #     blueprint.set_attribute('color', color)
         if blueprint.has_attribute('driver_id'):
             driver_id = random.choice(blueprint.get_attribute('driver_id').recommended_values)
             blueprint.set_attribute('driver_id', driver_id)
         if blueprint.has_attribute('is_invincible'):
             blueprint.set_attribute('is_invincible', 'true')
+        
         # set the max speed
         if blueprint.has_attribute('speed'):
             self.player_max_speed = float(blueprint.get_attribute('speed').recommended_values[1])
@@ -422,6 +426,29 @@ class KeyboardControl(object):
                     world.next_weather(reverse=True)
                 elif event.key == K_c:
                     world.next_weather()
+                elif event.key == K_e:
+                    global scenario_flag
+                    scenario_flag = not scenario_flag
+
+                    # control = carla.VehicleControl()
+                    # control.throttle = 0.3
+                    # world.player.apply_control(control)
+                    # while True:
+                    #     if world.player.get_location().x < -29.1 :
+                    #         # 차량 우회전
+                    #         # control = carla.VehicleControl()
+                    #         control.throttle = 0.3  # 가속도 설정
+                    #         control.steer = 0.22  # 우회전을 위한 조향각 설정
+                    #         world.player.apply_control(control)
+                    #         #print('start turn degree : ',vehicle.get_transform().rotation.yaw)
+                    #         if abs(world.player.get_transform().rotation.yaw) <= 93.0 :
+                    #             # control = carla.VehicleControl()
+                    #             control.throttle = 0.3  # 가속도 설정
+                    #             control.steer = 0  # 우회전을 위한 조향각 설정
+                    #             world.player.apply_control(control)
+                    #             #print('stop turn degree : ',vehicle.get_transform().rotation.yaw)
+                    #             break
+                    
                 elif event.key == K_f:
                     transform = carla.Transform(self.start_location, self.start_rotation)
                     world.player.set_transform(transform)
@@ -1244,6 +1271,26 @@ def game_loop(args):
             world.tick(clock)
             world.render(display)
             pygame.display.flip()
+            
+            global scenario_flag
+            if scenario_flag == True:
+                control = carla.VehicleControl()
+                control.throttle = 0.3
+                world.player.apply_control(control)
+                if world.player.get_location().x < -29.1 :
+                    # 차량 우회전
+                    control = carla.VehicleControl()
+                    control.throttle = 0.3  # 가속도 설정
+                    control.steer = 0.22  # 우회전을 위한 조향각 설정
+                    world.player.apply_control(control)
+                    #print('start turn degree : ',vehicle.get_transform().rotation.yaw)
+                    if abs(world.player.get_transform().rotation.yaw) <= 93.0 :
+                        # control = carla.VehicleControl()
+                        control.throttle = 0.3  # 가속도 설정
+                        control.steer = 0  # 우회전을 위한 조향각 설정
+                        world.player.apply_control(control)
+                        #print('stop turn degree : ',vehicle.get_transform().rotation.yaw)
+                    
 
     finally:
 
