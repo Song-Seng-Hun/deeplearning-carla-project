@@ -1,10 +1,3 @@
-#!/usr/bin/env python
-
-# Copyright (c) 2019 Aptiv
-#
-# This work is licensed under the terms of the MIT license.
-# For a copy, see <https://opensource.org/licenses/MIT>.
-
 """
 An example of client-side bounding boxes with basic car controls.
 Controls:
@@ -12,6 +5,8 @@ Controls:
     S            : brake
     AD           : steer
     Space        : hand-brake
+    p            : autopilot scenario
+    o            : stop scenario
     ESC          : quit
 """
 
@@ -61,6 +56,9 @@ try:
     from pygame.locals import K_d
     from pygame.locals import K_s
     from pygame.locals import K_w
+    from pygame.locals import K_r
+    from pygame.locals import K_p
+    from pygame.locals import K_o
 except ImportError:
     raise RuntimeError('cannot import pygame, make sure pygame package is installed')
 
@@ -69,11 +67,12 @@ try:
 except ImportError:
     raise RuntimeError('cannot import numpy, make sure numpy package is installed')
 
-VIEW_WIDTH = 1920//2
-VIEW_HEIGHT = 1080//2
-VIEW_FOV = 90
+scenario_flag = False
+
+VIEW_WIDTH = 1280
+VIEW_HEIGHT = 720
+VIEW_FOV = 150
 HOSTIP = 'localhost'
-BB_COLOR = (248, 64, 24)
 
 depth_array = []
 
@@ -91,19 +90,22 @@ class BasicSynchronousClient(object):
         self.client = None
         self.world = None
         self.camera = None
+        self.depth_camera = None
         self.car = None
 
         self.display = None
         self.image = None
-        self.raw_image = None
         self.capture = True
+        self.tm = None
+
+
 
     def control(self, car):
         """
         Applies control to main car based on pygame pressed keys.
         Will return True If ESCAPE is hit, otherwise False to end main loop.
         """
-
+        
         keys = pygame.key.get_pressed()
         if keys[K_ESCAPE]:
             return True
@@ -116,13 +118,27 @@ class BasicSynchronousClient(object):
         elif keys[K_s]:
             control.throttle = 1
             control.reverse = True
+
         if keys[K_a]:
             control.steer = max(-1., min(control.steer - 0.05, 0))
         elif keys[K_d]:
             control.steer = min(1., max(control.steer + 0.05, 0))
         else:
             control.steer = 0
+        
         control.hand_brake = keys[K_SPACE]
+
+        if keys[K_r] : 
+            car.set_transform(self.spawn_points[50])
+        elif keys[K_p]:
+            car.set_autopilot(True, self.tm_port)
+            self.tm.ignore_lights_percentage(car,100)
+            self.tm.set_path(car, self.route)
+            
+        if keys[K_o]:
+            car.set_autopilot(False, self.tm_port)
+            control.brake = 1
+        
 
         car.apply_control(control)
         return False
@@ -152,9 +168,9 @@ class BasicSynchronousClient(object):
         Spawns actor-vehicle to be controled.
         """
         try :
-            self.car = self.world.get_actors().filter('vehicle.*')[0]
+            self.car = self.world.get_actors().filter('vehicle.tesla.model3')[0]
         except :
-            car_bp = self.world.get_blueprint_library().filter('vehicle.*')[0]
+            car_bp = self.world.get_blueprint_library().filter('vehicle.tesla.model3')[0]
             location = random.choice(self.world.get_map().get_spawn_points())
             self.car = self.world.spawn_actor(car_bp, location)
 
@@ -163,8 +179,7 @@ class BasicSynchronousClient(object):
         Spawns actor-camera to be used to render view.
         Sets calibration for client-side boxes rendering.
         """
-        #camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
-        #First person view transform settings
+        
         camera_transform = carla.Transform(carla.Location(x=1.6, z=1.7), carla.Rotation(pitch=0))
         self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform, attach_to=self.car)
         weak_self = weakref.ref(self)
@@ -178,12 +193,6 @@ class BasicSynchronousClient(object):
         attachment_type=carla.AttachmentType.Rigid)
         self.camera.listen(lambda image: weak_self().set_image(weak_self, image))
         self.depth_camera.listen(lambda image: self.set_depth(image))
-
-        calibration = np.identity(3)
-        calibration[0, 2] = VIEW_WIDTH / 2.0
-        calibration[1, 2] = VIEW_HEIGHT / 2.0
-        calibration[0, 0] = calibration[1, 1] = VIEW_WIDTH / (2.0 * np.tan(VIEW_FOV * np.pi / 360.0))
-        self.camera.calibration = calibration
 
     @staticmethod
     def set_image(weak_self, img):
@@ -209,7 +218,6 @@ class BasicSynchronousClient(object):
             array = array[:, :, :3]
             result = model(array)[0]
             array = array[:, :, ::-1]
-            self.raw_image = cv2.cvtColor(array,cv2.COLOR_BGR2RGB)
             surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
             display.blit(surface, (0, 0))
 
@@ -232,9 +240,8 @@ class BasicSynchronousClient(object):
         array = np.frombuffer(image.raw_data, dtype=np.dtype('uint8'))
         array = np.reshape(array, (image.height, image.width, 4))
         depth_array = array[:, :, 0]
-        # depth_array = depth_array.swapaxes(0,1)
 
-    def game_loop(self, num_classes, input_size, graph):
+    def game_loop(self):
         """
         Main program loop.
         """
@@ -242,10 +249,21 @@ class BasicSynchronousClient(object):
         try:
             pygame.init()
             pygame.font.init()
+
             
             self.client = carla.Client("localhost", 2000)
             self.client.set_timeout(2.0)
             self.world = self.client.get_world()
+            self.tm = self.client.get_trafficmanager()
+            self.tm.set_synchronous_mode(True)
+            self.tm_port = self.tm.get_port()
+
+            # 시나리오 실행을 위해 autopilot 루트 설정
+            self.spawn_points = self.world.get_map().get_spawn_points()
+            self.route_point = [52, 104, 115, 67, 140, 10, 71, 60, 143, 149, 92, 21, 105, 45, 47, 134, 50]
+            self.route = []
+            for ind in self.route_point:
+                self.route.append(self.spawn_points[ind].location)
 
             self.setup_car()
             self.setup_camera()
@@ -255,27 +273,20 @@ class BasicSynchronousClient(object):
 
             self.set_synchronous_mode(True)
             
-            with tf.compat.v1.Session(graph=graph) as sess:
-                while True:
-                    self.world.tick()
+           
+            while True:
+                self.world.tick()
+
+                self.capture = True
+                pygame_clock.tick_busy_loop(20)
+
+                self.render(self.display)
+                
+                pygame.display.flip()
+                pygame.event.pump()
+                if self.control(self.car) :
+                    return
     
-                    self.capture = True
-                    pygame_clock.tick_busy_loop(20)
-    
-                    self.render(self.display)
-                    
-                    
-                    self.raw_image = cv2.cvtColor(self.raw_image, cv2.COLOR_BGR2RGB)
-                    frame_size = self.raw_image.shape[:2]
-                    
-                    image_data = self.raw_image
-                    # print(image_data.shape)
-                    ##### 여기서 YOLO 처리해야
-                    
-                    pygame.display.flip()
-                    pygame.event.pump()
-                    if self.control(self.car):
-                        return
 
         finally:
             self.set_synchronous_mode(False)
@@ -297,22 +308,11 @@ def main():
     """
     
     try:
-        # video_path      = 0
-        num_classes     = 80
-        input_size      = 416
-        graph           = tf.Graph()
-        
-        THIS_FOLDER = os.path.dirname(os.path.abspath(__file__))
-        
         client = BasicSynchronousClient()
-        client.game_loop(num_classes, input_size, graph)
+        client.game_loop()
     finally:
         print('EXIT')
 
 
 if __name__ == '__main__':
     main()
-
-
-
-
