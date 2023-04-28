@@ -21,8 +21,6 @@ Controls:
 from ultralytics import YOLO
 model = YOLO("/home/carla/PythonAPI/examples/src/best.pt")
 
-########################## opencv-python을 pip3 uninstall하고 ###########################
-################ opencv-contrib-python을 pip3 install해야 tracker 사용 가능 ###############
 import cv2
 import time
 import numpy as np
@@ -51,7 +49,7 @@ from carla import ColorConverter as cc
 # ==============================================================================
 
 import weakref
-import random
+import random, time
 
 try:
     import pygame
@@ -78,9 +76,9 @@ BB_COLOR = (248, 64, 24)
 tracker_list = []
 depth_array = []
 
-TRACKER_LIMIT = 16
+TRACKER_LIMIT = 5
 COORD_LIMIT = 10
-W_THRES, H_THRES = 200, 160
+W_THRES, H_THRES = 100, 100
 # ==============================================================================
 # -- BasicSynchronousClient ----------------------------------------------------
 # ==============================================================================
@@ -264,7 +262,7 @@ class BasicSynchronousClient(object):
                     for tracker in tracker_list :
                         bbox = tracker.bbox
                         tracker_center = (bbox[0] + bbox[2]//2, bbox[1] + bbox[3]//2)
-                        if abs(tracker_center[0]-center[0])<W_THRES and abs(tracker_center[1]-center[1])<H_THRES :
+                        if abs(tracker_center[0]-center[0])<W_THRES and abs(tracker_center[1]-center[1])<H_THRES:
                             if tracker.idx == int(idx) :
                                 do_create_box = False
                                 break
@@ -274,23 +272,26 @@ class BasicSynchronousClient(object):
                                 break
                         elif len(tracker_list) > TRACKER_LIMIT :
                             do_create_box = False
-                            print(tracker_list)
+                            print([tracker.bbox for tracker in tracker_list])
                             
                 if do_create_box is True :
                     tracker_list.append(myTracker(array, (int(x1), int(y1), int(abs(x2-x1)), int(abs(y2-y1))), idx, depth_array[center[1]][center[0]]))
                 
-            for tracker in tracker_list :
+            for i in range(len(tracker_list)) :
+                if i >= len(tracker_list) :
+                    break
+                tracker = tracker_list[i]
                 do_create_box = True
                 success, bbox, idx, depth = tracker.update(array)
-                if success is False and bbox[2]<W_THRES and bbox[3]<H_THRES :
-                    tracker_list.remove(tracker)
+                if (success is False and bbox[2]<W_THRES//depth//depth and bbox[3]<H_THRES//depth//depth) or bbox[0]+bbox[2]<0 or bbox[0]>VIEW_WIDTH or bbox[1]+bbox[3]>VIEW_HEIGHT or bbox[1]<0 :
+                    tracker_list.pop(i)
                     del tracker
+                    i -= 1
                     
                 else :
-                    text_surface = font.render(result.names[int(idx)]+' depth : '+str(depth), True, tracker.color)
+                    text_surface = font.render(result.names[int(idx)]+' depth : '+str(depth), True, tracker_list[i].color)
                     text_position = (bbox[0], bbox[1]-30)
-                    square_position = (bbox[0], bbox[1])
-                    pygame.draw.rect(display, tracker.color, (square_position[0], square_position[1], bbox[2], bbox[3]), 3)
+                    pygame.draw.rect(display, tracker.color, (bbox[0], bbox[1], bbox[2], bbox[3]), 3)
                     display.blit(text_surface, text_position)
                     
     @staticmethod
@@ -330,7 +331,7 @@ class BasicSynchronousClient(object):
                     pygame_clock.tick_busy_loop(20)
     
                     self.render(self.display)
-                    
+                    time.sleep(0.01)
                     self.raw_image = cv2.cvtColor(self.raw_image, cv2.COLOR_BGR2RGB)
                     
                     pygame.display.flip()
