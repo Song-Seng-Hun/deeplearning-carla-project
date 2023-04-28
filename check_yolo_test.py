@@ -19,7 +19,7 @@ Controls:
 # -- find carla module ---------------------------------------------------------
 # ==============================================================================
 from ultralytics import YOLO
-model = YOLO("/home/carla/PythonAPI/CARLA-project/test_scenario/best.pt")
+model = YOLO("/home/carla/PythonAPI/examples/src/best.pt")
 
 import cv2
 import time
@@ -77,7 +77,8 @@ tracker_list = []
 depth_array = []
 
 TRACKER_LIMIT = 16
-W_THRES, H_THRES = 12, 12
+COORD_LIMIT = 10
+W_THRES, H_THRES = 200, 160
 # ==============================================================================
 # -- BasicSynchronousClient ----------------------------------------------------
 # ==============================================================================
@@ -97,6 +98,7 @@ class myTracker :
         self.depth = depth_array[bbox[1]+bbox[3]//2][bbox[0]+bbox[2]//2]
         if success :
             self.coords.append(bbox)
+            self.coords = self.coords[-COORD_LIMIT:]
         return success, bbox, self.idx, self.depth
     
     def set_idx(self, idx) :
@@ -107,8 +109,11 @@ class myTracker :
         return self.coords, self.idx, self.depth
     
     def __del__(self) :
-        with open('log.txt', 'a') as f :
-            f.write(str(self.coords) + '\t' + str(self.depth) + '\t' + str(self.idx) + '\n')
+        try :
+            with open('log.txt', 'a') as f :
+                f.write(str(self.coords) + '\t' + str(self.depth) + '\t' + str(self.idx) + '\n')
+        except :
+            pass
         
 class BasicSynchronousClient(object):
     """
@@ -215,7 +220,7 @@ class BasicSynchronousClient(object):
         attach_to=self.car,
         attachment_type=carla.AttachmentType.Rigid)
         self.camera.listen(lambda image: weak_self().set_image(weak_self, image))
-        self.depth_camera.listen(lambda image: self.set_depth(image))
+        self.depth_camera.listen(lambda image: weak_self().set_depth(weak_self, image))
 
     @staticmethod
     def set_image(weak_self, img):
@@ -235,6 +240,7 @@ class BasicSynchronousClient(object):
         """
         Transforms image from camera sensor and blits it to main pygame display.
         """
+        
         if self.image is not None:
             array = np.frombuffer(self.image.raw_data, dtype=np.dtype("uint8"))
             array = np.reshape(array, (self.image.height, self.image.width, 4))
@@ -246,11 +252,10 @@ class BasicSynchronousClient(object):
             display.blit(surface, (0, 0))
             font = pygame.font.SysFont(None, 48) 
             
-            boxes = result.boxes.boxes
+            boxes = result.boxes.data
             do_create_box = True
             for box in boxes :
                 x1, y1, x2, y2,c,idx = box
-                width, height = int(abs(x2-x1)), int(abs(y2-y1))
                 center = (int((x1+x2)//2), int((y1+y2)//2))
                 
                 if len(tracker_list) > 0 :
@@ -267,24 +272,29 @@ class BasicSynchronousClient(object):
                                 break
                         elif len(tracker_list) > TRACKER_LIMIT :
                             do_create_box = False
+                            print(tracker_list)
                             
                 if do_create_box is True :
-                    tracker_list.append(myTracker(array, (x1, y1, abs(x2-x1), abs(y2-y1)), idx, depth_array[tracker_center[0]][tracker_center[1]]))
-               
+                    tracker_list.append(myTracker(array, (int(x1), int(y1), int(abs(x2-x1)), int(abs(y2-y1))), idx, depth_array[center[1]][center[0]]))
+                
             for tracker in tracker_list :
+                do_create_box = True
                 success, bbox, idx, depth = tracker.update(array)
-                if success is False :
+                if success is False and bbox[2]<W_THRES and bbox[3]<H_THRES :
+                    tracker_list.remove(tracker)
                     del tracker
+                    
                 else :
                     text_surface = font.render(result.names[int(idx)]+' depth : '+str(depth), True, tracker.color)
                     text_position = (bbox[0], bbox[1]-30)
                     square_position = (bbox[0], bbox[1])
-                    pygame.draw.rect(display, tracker.color, (square_position[0], square_position[1], width, height), 3)
+                    pygame.draw.rect(display, tracker.color, (square_position[0], square_position[1], bbox[2], bbox[3]), 3)
                     display.blit(text_surface, text_position)
                     
     @staticmethod
-    def set_depth(self, image):
+    def set_depth(weak_self, image):
         global depth_array
+        self = weak_self()
         image.convert(cc.LogarithmicDepth)
         array = np.frombuffer(image.raw_data, dtype=np.dtype('uint8'))
         array = np.reshape(array, (image.height, image.width, 4))
