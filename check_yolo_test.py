@@ -21,6 +21,8 @@ Controls:
 from ultralytics import YOLO
 model = YOLO("/home/carla/PythonAPI/examples/src/best.pt")
 
+########################## opencv-python을 pip3 uninstall하고 ###########################
+################ opencv-contrib-python을 pip3 install해야 tracker 사용 가능 ###############
 import cv2
 import time
 import numpy as np
