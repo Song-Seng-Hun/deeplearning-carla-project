@@ -8,4 +8,4 @@
 - killing.py : 서버 청소용..(남아버린 오브젝트 삭제)
 - myweather.py : 날씨 변경
 - tracker_test.py : cv2.tracker 테스트용
-- vehicle_control : 차량 수동조작 코드
+- vehicle_control.py : 차량 수동조작 코드
