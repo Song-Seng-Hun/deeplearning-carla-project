@@ -76,7 +76,7 @@ BB_COLOR = (248, 64, 24)
 tracker_list = []
 depth_array = []
 
-TRACKER_LIMIT = 5
+TRACKER_LIMIT = 8
 COORD_LIMIT = 10
 W_THRES, H_THRES = 100, 100
 # ==============================================================================
