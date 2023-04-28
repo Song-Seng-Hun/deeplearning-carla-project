@@ -289,7 +289,7 @@ class BasicSynchronousClient(object):
                     i -= 1
                     
                 else :
-                    text_surface = font.render(result.names[int(idx)]+' depth : '+str(depth), True, tracker_list[i].color)
+                    text_surface = font.render(result.names[int(idx)]+' depth : '+str(depth), True, tracker.color)
                     text_position = (bbox[0], bbox[1]-30)
                     pygame.draw.rect(display, tracker.color, (bbox[0], bbox[1], bbox[2], bbox[3]), 3)
                     display.blit(text_surface, text_position)
