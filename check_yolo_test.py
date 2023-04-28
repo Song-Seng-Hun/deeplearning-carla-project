@@ -30,7 +30,8 @@ from PIL import Image
 import colorsys
 
 import glob
-import os
+import os, logging
+logging.basicConfig(level=logging.WARNING)
 import sys
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
@@ -76,7 +77,7 @@ BB_COLOR = (248, 64, 24)
 tracker_list = []
 depth_array = []
 
-TRACKER_LIMIT = 8
+TRACKER_LIMIT = 20
 COORD_LIMIT = 10
 W_THRES, H_THRES = 100, 100
 # ==============================================================================
@@ -251,6 +252,9 @@ class BasicSynchronousClient(object):
             surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))     
             display.blit(surface, (0, 0))
             font = pygame.font.SysFont(None, 48) 
+
+            if len(tracker_list) > TRACKER_LIMIT//2 :
+                tracker_list = []
             
             boxes = result.boxes.data
             do_create_box = True
