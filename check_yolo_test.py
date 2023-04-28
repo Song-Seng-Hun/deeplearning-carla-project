@@ -283,13 +283,13 @@ class BasicSynchronousClient(object):
                 tracker = tracker_list[i]
                 do_create_box = True
                 success, bbox, idx, depth = tracker.update(array)
-                if (success is False and bbox[2]<W_THRES//depth//depth and bbox[3]<H_THRES//depth//depth) or bbox[0]+bbox[2]<0 or bbox[0]>VIEW_WIDTH or bbox[1]+bbox[3]>VIEW_HEIGHT or bbox[1]<0 :
+                if (success is False and bbox[2]<W_THRES//depth//depth and bbox[3]<H_THRES//depth//depth) or bbox[0]+bbox[2]<0 or bbox[0]>VIEW_WIDTH or bbox[1]+bbox[3]>VIEW_HEIGHT or bbox[1]<0 or bbox[2]<20 or bbox[3]<20 :
                     tracker_list.pop(i)
                     del tracker
                     i -= 1
                     
                 else :
-                    text_surface = font.render(result.names[int(idx)]+' depth : '+str(depth), True, tracker.color)
+                    text_surface = font.render(result.names[int(idx)]+' depth : '+str(depth), True, tracker_list[i].color)
                     text_position = (bbox[0], bbox[1]-30)
                     pygame.draw.rect(display, tracker.color, (bbox[0], bbox[1], bbox[2], bbox[3]), 3)
                     display.blit(text_surface, text_position)
