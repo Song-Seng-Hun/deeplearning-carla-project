@@ -74,8 +74,7 @@ cam_transform = carla.Transform(carla.Location(x=0.5, z=1.7))
 rgb_camera_bp = world.get_blueprint_library().find('sensor.camera.rgb')
 depth_camera_bp = bp_lib.find('sensor.camera.depth') 
 sem_camera_bp = bp_lib.find('sensor.camera.semantic_segmentation')                  
-gnss_bp = bp_lib.find('sensor.other.gnss')                                          # GNSS
-imu_bp = bp_lib.find('sensor.other.imu')                                            # IMU 
+
 
 
   
@@ -85,6 +84,10 @@ image_h = rgb_camera_bp.get_attribute("image_size_y").as_int()
 rgb_data = {'rgb_image': np.zeros((image_h, image_w, 4))}
 depth_data = {'depth_image': np.zeros((image_h, image_w, 4))}
 sem_data = {'sem_image': np.zeros((image_h, image_w, 4))}
+
+# ============================== GNSS, IMU ============================== #
+gnss_bp = bp_lib.find('sensor.other.gnss')                                          # GNSS
+imu_bp = bp_lib.find('sensor.other.imu')                                            # IMU 
 
 spawn_location_walker = carla.Transform(carla.Location(x=-35, y=2.7, z=3.0),carla.Rotation(pitch=0, yaw=180, roll=0))
 walker_bp = bp_lib.filter('walker.pedestrian.*')[3]
