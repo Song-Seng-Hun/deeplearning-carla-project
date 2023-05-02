@@ -71,10 +71,9 @@ scenario_flag = False
 
 VIEW_WIDTH = 1280
 VIEW_HEIGHT = 720
-VIEW_FOV = 150
+VIEW_FOV = 130
 HOSTIP = 'localhost'
 
-depth_array = []
 
 # ==============================================================================
 # -- BasicSynchronousClient ----------------------------------------------------
@@ -95,6 +94,8 @@ class BasicSynchronousClient(object):
 
         self.display = None
         self.image = None
+        self.depth_image = None
+        self.cctv_image = None
         self.capture = True
         self.tm = None
 
@@ -129,31 +130,25 @@ class BasicSynchronousClient(object):
         control.hand_brake = keys[K_SPACE]
 
         if keys[K_r] : 
-            car.set_transform(self.spawn_points[50])
+            car.set_transform(self.spawn_points[104])
         elif keys[K_p]:
             car.set_autopilot(True, self.tm_port)
             self.tm.ignore_lights_percentage(car,100)
+            self.tm.ignore_walkers_percentage(car,100)
+            self.tm.random_left_lanechange_percentage(car, 0)
+            self.tm.random_right_lanechange_percentage(car, 0)
             self.tm.set_path(car, self.route)
             
         if keys[K_o]:
             car.set_autopilot(False, self.tm_port)
             control.brake = 1
+
+        if car.get_velocity().length() == 0 :
+            control.brake = 0
         
 
         car.apply_control(control)
         return False
-
-    def camera_blueprint(self):
-        """
-        Returns camera blueprint.
-        """
-
-        camera_bp = self.world.get_blueprint_library().find('sensor.camera.rgb')
-        camera_bp.set_attribute('image_size_x', str(VIEW_WIDTH))
-        camera_bp.set_attribute('image_size_y', str(VIEW_HEIGHT))
-        camera_bp.set_attribute('fov', str(VIEW_FOV))
-        
-        return camera_bp
 
     def set_synchronous_mode(self, synchronous_mode):
         """
@@ -174,6 +169,64 @@ class BasicSynchronousClient(object):
             location = random.choice(self.world.get_map().get_spawn_points())
             self.car = self.world.spawn_actor(car_bp, location)
 
+    def setup_walker(self) :
+        
+        walker_bp = random.choice(self.world.get_blueprint_library().filter('walker.*'))
+        rotation = carla.Rotation(pitch=0, yaw=180.0, roll=0.0)
+        transform = carla.Transform(self.crosswalks[16], rotation)
+        self.walker = self.world.spawn_actor(walker_bp, transform)
+
+        self.walker_controller_bp = self.world.get_blueprint_library().find('controller.ai.walker')
+
+        self.controller = self.world.spawn_actor(self.walker_controller_bp, carla.Transform(), self.walker)
+        self.controller.start()
+        self.controller.set_max_speed(2)
+        self.controller.go_to_location(self.crosswalks[18])
+
+    def walker_scenario(self) :
+        if (self.walker.get_location().distance(self.crosswalks[19]) < 2) or (self.walker.get_location().distance(self.crosswalks[16]) < 2)  :
+            self.controller.go_to_location(self.crosswalks[18])
+            # time.sleep(1.0)
+        if (self.walker.get_location().distance(self.crosswalks[17]) < 2) or (self.walker.get_location().distance(self.crosswalks[18]) < 2)  :
+            self.controller.go_to_location(self.crosswalks[19])
+            # time.sleep(1.0)
+
+    def camera_blueprint(self):
+        """
+        Returns camera blueprint.
+        """
+
+        camera_bp = self.world.get_blueprint_library().find('sensor.camera.rgb')
+        camera_bp.set_attribute('image_size_x', str(VIEW_WIDTH))
+        camera_bp.set_attribute('image_size_y', str(VIEW_HEIGHT))
+        camera_bp.set_attribute('fov', str(VIEW_FOV))
+        
+        return camera_bp
+    
+    def depth_camera_blueprint(self):
+        """
+        Returns depth_camera blueprint.
+        """
+
+        depth_camera_bp = self.world.get_blueprint_library().find('sensor.camera.depth')
+        depth_camera_bp.set_attribute('image_size_x', str(VIEW_WIDTH))
+        depth_camera_bp.set_attribute('image_size_y', str(VIEW_HEIGHT))
+        depth_camera_bp.set_attribute('fov', str(VIEW_FOV))
+
+        return depth_camera_bp
+    
+    # def cctv_camera_blueprint(self) :
+    #     """
+    #     Returns camera blueprint.
+    #     """
+
+    #     cctv_camera_bp = self.world.get_blueprint_library().find('sensor.camera.rgb')
+    #     cctv_camera_bp.set_attribute('image_size_x', str(VIEW_WIDTH))
+    #     cctv_camera_bp.set_attribute('image_size_y', str(VIEW_HEIGHT))
+    #     cctv_camera_bp.set_attribute('fov', str(VIEW_FOV))
+        
+        return cctv_camera_bp
+    
     def setup_camera(self):
         """
         Spawns actor-camera to be used to render view.
@@ -181,18 +234,48 @@ class BasicSynchronousClient(object):
         """
         
         camera_transform = carla.Transform(carla.Location(x=1.6, z=1.7), carla.Rotation(pitch=0))
-        self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform, attach_to=self.car)
+        self.camera = self.world.spawn_actor(self.camera_blueprint(),
+                                             camera_transform, 
+                                             attach_to=self.car,
+                                             attachment_type=carla.AttachmentType.Rigid)
         weak_self = weakref.ref(self)
-        self.depth_camera_bp = self.world.get_blueprint_library().find('sensor.camera.depth')
-        self.depth_camera_bp.set_attribute('image_size_x', str(VIEW_WIDTH))
-        self.depth_camera_bp.set_attribute('image_size_y', str(VIEW_HEIGHT))
-        self.depth_camera_bp.set_attribute('fov', str(VIEW_FOV))
-        self.depth_camera = self.world.spawn_actor(self.depth_camera_bp, 
-        camera_transform,
-        attach_to=self.car,
-        attachment_type=carla.AttachmentType.Rigid)
         self.camera.listen(lambda image: weak_self().set_image(weak_self, image))
-        self.depth_camera.listen(lambda image: self.set_depth(image))
+
+        calibration = np.identity(3)
+        calibration[0, 2] = VIEW_WIDTH / 2.0
+        calibration[1, 2] = VIEW_HEIGHT / 2.0
+        calibration[0, 0] = calibration[1, 1] = VIEW_WIDTH / (2.0 * np.tan(VIEW_FOV * np.pi / 360.0))
+        self.camera.calibration = calibration
+
+    def setup_depth_camera(self) :
+        depth_camera_transform = carla.Transform(carla.Location(x=1.6, z=1.7), carla.Rotation(pitch=0))
+        self.depth_camera = self.world.spawn_actor(self.depth_camera_blueprint(),
+                                                   depth_camera_transform,
+                                                   attach_to=self.car,
+                                                   attachment_type=carla.AttachmentType.Rigid)
+        weak_self = weakref.ref(self)
+        self.depth_camera.listen(lambda image: weak_self().set_depth_image(weak_self,image))
+
+        calibration = np.identity(3)
+        calibration[0, 2] = VIEW_WIDTH / 2.0
+        calibration[1, 2] = VIEW_HEIGHT / 2.0
+        calibration[0, 0] = calibration[1, 1] = VIEW_WIDTH / (2.0 * np.tan(VIEW_FOV * np.pi / 360.0))
+        self.camera.calibration = calibration
+
+    # def setup_cctv_camera(self) :
+    #     cctv_camera_transform = carla.Transform(carla.Location(x=1.6, z=1.7), carla.Rotation(pitch=0))
+    #     self.cctv_camera = self.world.spawn_actor(self.depth_camera_blueprint(),
+    #                                                cctv_camera_transform,
+    #                                                attach_to=self.car,
+    #                                                attachment_type=carla.AttachmentType.Rigid)
+    #     weak_self = weakref.ref(self)
+    #     self.cctv_camera.listen(lambda image: weak_self().set_cctv_image(weak_self,image))
+
+    #     calibration = np.identity(3)
+    #     calibration[0, 2] = VIEW_WIDTH / 2.0
+    #     calibration[1, 2] = VIEW_HEIGHT / 2.0
+    #     calibration[0, 0] = calibration[1, 1] = VIEW_WIDTH / (2.0 * np.tan(VIEW_FOV * np.pi / 360.0))
+    #     self.cctv_camera.calibration = calibration
 
     @staticmethod
     def set_image(weak_self, img):
@@ -203,9 +286,32 @@ class BasicSynchronousClient(object):
         """
 
         self = weak_self()
-        if self.capture:
-            self.image = img
-            self.capture = False
+        if not self:
+            return
+
+        self.image = img
+  
+
+    @staticmethod
+    def set_depth_image(weak_self, image):
+
+        self = weak_self()
+        if not self:
+            return
+        
+        image.convert(cc.LogarithmicDepth)
+        array = np.frombuffer(image.raw_data, dtype=np.dtype('uint8'))
+        array = np.reshape(array, (image.height, image.width, 4))
+        self.depth_image = array[:, :, 0]
+
+    # @staticmethod
+    # def set_cctv_image(weak_self, image) :
+    #     self = weak_self()
+    #     if not self:
+    #         return
+        
+    #     self.cctv_image = image
+
 
     def render(self, display):
         """
@@ -223,23 +329,23 @@ class BasicSynchronousClient(object):
 
             font = pygame.font.SysFont(None, 48)
 
-
             boxes = result.boxes.boxes
             for box in boxes :
                 x1, y1, x2, y2,c,idx = box
                 width, height = abs(x2-x1), abs(y2-y1)
-                text_surface = font.render(result.names[int(idx)]+", depth : "+str(depth_array[int(min(y1,y2)+height//2)][int(min(x1,x2)+width//2)]), True, (255, 0, 0))
+                text_surface = font.render(result.names[int(idx)]+", depth : "+str(self.depth_image[int(min(y1,y2)+height//2)][int(min(x1,x2)+width//2)]), True, (255, 0, 0))
                 text_position = (min(x1,x2), min(y1,y2)-30)
                 square_position = (min(x1,x2), min(y1,y2))
                 pygame.draw.rect(display, (0, 255, 0), (square_position[0], square_position[1], width, height), 3)
                 display.blit(text_surface, text_position)
 
-    def set_depth(self, image):
-        global depth_array
-        image.convert(cc.LogarithmicDepth)
-        array = np.frombuffer(image.raw_data, dtype=np.dtype('uint8'))
-        array = np.reshape(array, (image.height, image.width, 4))
-        depth_array = array[:, :, 0]
+    # def cctv_render(self, display) :
+    #     if self.cctv_image is not None :
+    #         array = np.frombuffer(self.image.raw_data, dtype=np.dtype("uint8"))
+    #         array = np.reshape(array, (self.image.height, self.image.width, 4))
+    #         array = array[:, :, :3]
+    #         # array = array[:, :, ::-1]
+    #         cv2.imshow("Screen2", array)
 
     def game_loop(self):
         """
@@ -250,7 +356,7 @@ class BasicSynchronousClient(object):
             pygame.init()
             pygame.font.init()
 
-            
+            # 클라이언트와 맵 설정
             self.client = carla.Client("localhost", 2000)
             self.client.set_timeout(2.0)
             self.world = self.client.get_world()
@@ -258,15 +364,33 @@ class BasicSynchronousClient(object):
             self.tm.set_synchronous_mode(True)
             self.tm_port = self.tm.get_port()
 
-            # 시나리오 실행을 위해 autopilot 루트 설정
+            # 날씨 설정
+            self.world.set_weather(carla.WeatherParameters(
+                sun_altitude_angle=10.0,
+                cloudiness=0.0,
+                precipitation=0.0,
+                precipitation_deposits=0.0,
+                wind_intensity=0.0,
+                sun_azimuth_angle=0.0,
+                fog_density=0.0,
+                fog_distance=0.0
+            ))
+            # 시나리오 실행을 위해 차량 autopilot 루트 설정
             self.spawn_points = self.world.get_map().get_spawn_points()
             self.route_point = [52, 104, 115, 67, 140, 10, 71, 60, 143, 149, 92, 21, 105, 45, 47, 134, 50]
             self.route = []
             for ind in self.route_point:
                 self.route.append(self.spawn_points[ind].location)
 
+            self.crosswalks = self.world.get_map().get_crosswalks()
+            for each in self.crosswalks :
+                each.z += 1
+            
+
             self.setup_car()
             self.setup_camera()
+            self.setup_depth_camera()
+            self.setup_walker()
 
             self.display = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
             pygame_clock = pygame.time.Clock()
@@ -281,7 +405,7 @@ class BasicSynchronousClient(object):
                 pygame_clock.tick_busy_loop(20)
 
                 self.render(self.display)
-                
+                self.walker_scenario()
                 pygame.display.flip()
                 pygame.event.pump()
                 if self.control(self.car) :
@@ -291,8 +415,10 @@ class BasicSynchronousClient(object):
         finally:
             self.set_synchronous_mode(False)
             self.camera.destroy()
-            self.car.destroy()
             self.depth_camera.destroy()
+            self.car.destroy()
+            self.walker.destroy()
+
             pygame.quit()
             pygame.font.quit()
 
