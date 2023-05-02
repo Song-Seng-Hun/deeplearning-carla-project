@@ -2,6 +2,9 @@ import carla
 import pygame
 import cv2
 import math
+import time
+import open3d as o3d
+from matplotlib import cm
 import numpy as np
 import random
 
@@ -10,6 +13,10 @@ import random
 # 하 61 62
 # 좌 79 107
 # 우 99 102
+
+client = carla.Client("localhost",2000)
+world = client.get_world()
+spawn_points = world.get_map().get_spawn_points()
 
 # Some parameters for text on screen
 font                   = cv2.FONT_HERSHEY_SIMPLEX
@@ -32,14 +39,18 @@ def pygame_callback(disp, image):
 def remove():
     print("!!! destroyed !!!")
     cv2.destroyAllWindows()
-    # rgb_camera_1.destroy()
+    rgb_camera_1.destroy()
     rgb_camera_2.destroy()
     depth_camera.destroy()
     sem_camera.destroy()
     gnss_sensor.destroy()
     imu_sensor.destroy()
+    lidar.destroy()
+    radar.destroy()
     vehicle.destroy()
     walker.destroy()
+    # for actor in world.get_actors().filter('*sensor*'):
+    #     actor.destroy()
 
 # ============================== 센서 콜백 ============================== #
 def rgb_callback(image, data_dict):
@@ -80,12 +91,53 @@ def draw_compass(img, theta):
     compass_point = (int(compass_center[0] + compass_size * math.sin(theta)), int(compass_center[1] - compass_size * math.cos(theta)))
     cv2.line(img, compass_center, compass_point, (255, 255, 255), 3)
 
+# LIDAR and RADAR callbacks
 
-client = carla.Client("localhost",2000)
-world = client.get_world()
-spawn_points = world.get_map().get_spawn_points()
+def lidar_callback(point_cloud, point_list):
+    """Prepares a point cloud with intensity
+    colors ready to be consumed by Open3D"""
+    data = np.copy(np.frombuffer(point_cloud.raw_data, dtype=np.dtype('f4')))
+    data = np.reshape(data, (int(data.shape[0] / 4), 4))
 
-# 웨이포인트
+    # Isolate the intensity and compute a color for it
+    intensity = data[:, -1]
+    intensity_col = 1.0 - np.log(intensity) / np.log(np.exp(-0.004 * 100))
+    int_color = np.c_[
+        np.interp(intensity_col, VID_RANGE, VIRIDIS[:, 0]),
+        np.interp(intensity_col, VID_RANGE, VIRIDIS[:, 1]),
+        np.interp(intensity_col, VID_RANGE, VIRIDIS[:, 2])]
+
+    points = data[:, :-1]
+
+    points[:, :1] = -points[:, :1]
+
+    point_list.points = o3d.utility.Vector3dVector(points)
+    point_list.colors = o3d.utility.Vector3dVector(int_color)
+
+def radar_callback(data, point_list):
+    radar_data = np.zeros((len(data), 4))
+    
+    for i, detection in enumerate(data):
+        x = detection.depth * math.cos(detection.altitude) * math.cos(detection.azimuth)
+        y = detection.depth * math.cos(detection.altitude) * math.sin(detection.azimuth)
+        z = detection.depth * math.sin(detection.altitude)
+        
+        radar_data[i, :] = [x, y, z, detection.velocity]
+        
+    intensity = np.abs(radar_data[:, -1])
+    intensity_col = 1.0 - np.log(intensity) / np.log(np.exp(-0.004 * 100))
+    int_color = np.c_[
+        np.interp(intensity_col, COOL_RANGE, COOL[:, 0]),
+        np.interp(intensity_col, COOL_RANGE, COOL[:, 1]),
+        np.interp(intensity_col, COOL_RANGE, COOL[:, 2])]
+    
+    points = radar_data[:, :-1]
+    points[:, :1] = -points[:, :1]
+    point_list.points = o3d.utility.Vector3dVector(points)
+    point_list.colors = o3d.utility.Vector3dVector(int_color)
+
+
+# ============================== 웨이포인트 ============================== #
 map = world.get_map()
 waypoint = world.get_map().get_waypoint
 
@@ -110,9 +162,6 @@ cam_transform = carla.Transform(carla.Location(x=0.5, z=1.7))
 rgb_camera_bp = world.get_blueprint_library().find('sensor.camera.rgb')
 depth_camera_bp = bp_lib.find('sensor.camera.depth') 
 sem_camera_bp = bp_lib.find('sensor.camera.semantic_segmentation')                  
-
-
-
   
 
 image_w = rgb_camera_bp.get_attribute("image_size_x").as_int()
@@ -127,14 +176,77 @@ imu_bp = bp_lib.find('sensor.other.imu')                                        
 gnss_data = {'gnss':[0,0]}
 imu_data = {'imu':{'gyro': carla.Vector3D(), 'accel': carla.Vector3D(), 'compass': 0}}
 
+# ============================== LiDAR, RADAR ============================== #
+# Auxilliary code for colormaps and axes
+VIRIDIS = np.array(cm.get_cmap('plasma').colors)
+VID_RANGE = np.linspace(0.0, 1.0, VIRIDIS.shape[0])
+
+COOL_RANGE = np.linspace(0.0, 1.0, VIRIDIS.shape[0])
+COOL = np.array(cm.get_cmap('winter')(COOL_RANGE))
+COOL = COOL[:,:3]
+
+def add_open3d_axis(vis):
+    """Add a small 3D axis on Open3D Visualizer"""
+    axis = o3d.geometry.LineSet()
+    axis.points = o3d.utility.Vector3dVector(np.array([
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0]]))
+    axis.lines = o3d.utility.Vector2iVector(np.array([
+        [0, 1],
+        [0, 2],
+        [0, 3]]))
+    axis.colors = o3d.utility.Vector3dVector(np.array([
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0]]))
+    vis.add_geometry(axis)
 
 
+# Set up LIDAR and RADAR, parameters are to assisst visualisation
+
+lidar_bp = bp_lib.find('sensor.lidar.ray_cast') 
+lidar_bp.set_attribute('range', '100.0')
+lidar_bp.set_attribute('noise_stddev', '0.1')
+lidar_bp.set_attribute('upper_fov', '15.0')
+lidar_bp.set_attribute('lower_fov', '-25.0')
+lidar_bp.set_attribute('channels', '64.0')
+lidar_bp.set_attribute('rotation_frequency', '20.0')
+lidar_bp.set_attribute('points_per_second', '500000')
+# lidar_init_trans = carla.Transform(carla.Location(z=2))
+
+
+radar_bp = bp_lib.find('sensor.other.radar') 
+radar_bp.set_attribute('horizontal_fov', '30.0')
+radar_bp.set_attribute('vertical_fov', '30.0')
+radar_bp.set_attribute('points_per_second', '10000')
+# radar_init_trans = carla.Transform(carla.Location(z=2))
+
+# Add auxilliary data structures
+point_list = o3d.geometry.PointCloud()
+radar_list = o3d.geometry.PointCloud()
+
+# Open3D visualiser for LIDAR and RADAR
+vis = o3d.visualization.Visualizer()
+vis.create_window(
+    window_name='Carla Lidar',
+    width=960,
+    height=540,
+    left=480,
+    top=270)
+vis.get_render_option().background_color = [0.05, 0.05, 0.05]
+vis.get_render_option().point_size = 1
+vis.get_render_option().show_coordinate_frame = True
+add_open3d_axis(vis)
 
 
 # ============================== 보행자 ============================== #
 spawn_location_walker = carla.Transform(carla.Location(x=-35, y=2.7, z=3.0),carla.Rotation(pitch=0, yaw=180, roll=0))
 walker_bp = bp_lib.filter('walker.pedestrian.*')[3]
 
+
+# ============================== 신호등 ============================== #
 t_lights = world.get_actors().filter("*traffic_light*")
 for i in range(len(t_lights)):
     t_lights[i].set_state(carla.TrafficLightState.Off)
@@ -150,7 +262,11 @@ my_t_light.set_yellow_time(0.5)
 my_t_light.set_red_time(0.5)
 my_t_light.set_state(carla.TrafficLightState.Green)
 
+
+
 display = pygame.display.set_mode((1280, 720),pygame.HWSURFACE | pygame.DOUBLEBUF)
+
+frame = 0
 
 objectExist = False
 generate = False
@@ -158,24 +274,25 @@ cameraOn = False
 trafficOn = False
 quitGame = False
 
-
-
-
 cv2.waitKey(1)
 
 while True:
     keys = pygame.key.get_pressed()
+    
 
     if generate == True:
         vehicle = world.spawn_actor(my_car_bp, spawn_0)
         walker = world.spawn_actor(walker_bp, spawn_location_walker)
-        # rgb_camera_1 = world.spawn_actor(rgb_camera_bp, cam_transform, attach_to=vehicle, attachment_type=carla.AttachmentType.Rigid)
+        rgb_camera_1 = world.spawn_actor(rgb_camera_bp, cam_transform, attach_to=vehicle, attachment_type=carla.AttachmentType.Rigid)
         rgb_camera_2 = world.spawn_actor(rgb_camera_bp, cam_transform, attach_to=vehicle, attachment_type=carla.AttachmentType.Rigid)
         depth_camera = world.spawn_actor(depth_camera_bp, cam_transform, attach_to=vehicle, attachment_type=carla.AttachmentType.Rigid)
         sem_camera = world.spawn_actor(sem_camera_bp, cam_transform, attach_to=vehicle, attachment_type=carla.AttachmentType.Rigid)
-        gnss_sensor = world.spawn_actor(gnss_bp, cam_transform, attach_to=vehicle, attachment_type=carla.AttachmentType.Rigid)
-        imu_sensor = world.spawn_actor(imu_bp, cam_transform, attach_to=vehicle, attachment_type=carla.AttachmentType.Rigid)
-        # rgb_camera_1.listen(lambda image: pygame_callback(display, image))           # rgb camera for pygame window
+        gnss_sensor = world.spawn_actor(gnss_bp, cam_transform, attach_to=vehicle)
+        imu_sensor = world.spawn_actor(imu_bp, cam_transform, attach_to=vehicle)
+        radar = world.spawn_actor(radar_bp, cam_transform, attach_to=vehicle)
+        lidar = world.spawn_actor(lidar_bp, cam_transform, attach_to=vehicle)
+
+        rgb_camera_1.listen(lambda image: pygame_callback(display, image))           # rgb camera for pygame window
         rgb_camera_2.listen(lambda image: rgb_callback(image, rgb_data))            # rgb camera for cv2 window
         depth_camera.listen(lambda image: depth_callback(image, depth_data))
         sem_camera.listen(lambda image: sem_callback(image, sem_data))
@@ -183,6 +300,10 @@ while True:
 
         gnss_sensor.listen(lambda event: gnss_callback(event, gnss_data))
         imu_sensor.listen(lambda event: imu_callback(event, imu_data))
+
+        # Start sensors
+        lidar.listen(lambda data: lidar_callback(data, point_list))
+        radar.listen(lambda data: radar_callback(data, radar_list))
 
         print("!!! initialized !!!")
         control = carla.VehicleControl()
@@ -334,6 +455,17 @@ while True:
     
     # Draw the compass
     draw_compass(rgb_data['rgb_image'], imu_data['imu']['compass'])
+
+    if frame == 2:
+        vis.add_geometry(point_list)
+        vis.add_geometry(radar_list)
+    vis.update_geometry(point_list)
+    vis.update_geometry(radar_list)
+    vis.poll_events()
+    vis.update_renderer()
+    # # This can fix Open3D jittering issues:
+    time.sleep(0.005)
+    frame += 1
 
     if cameraOn == True:
         rds = np.concatenate((rgb_data['rgb_image'], depth_data['depth_image'], sem_data['sem_image']), axis=1)
