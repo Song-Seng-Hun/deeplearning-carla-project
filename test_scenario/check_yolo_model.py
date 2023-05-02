@@ -91,6 +91,7 @@ class BasicSynchronousClient(object):
         self.camera = None
         self.depth_camera = None
         self.car = None
+        self.walker = None
 
         self.display = None
         self.image = None
