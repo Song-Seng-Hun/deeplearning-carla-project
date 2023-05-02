@@ -1,6 +1,7 @@
 import carla
 import pygame
 import cv2
+import math
 import numpy as np
 import random
 
@@ -9,6 +10,14 @@ import random
 # 하 61 62
 # 좌 79 107
 # 우 99 102
+
+# Some parameters for text on screen
+font                   = cv2.FONT_HERSHEY_SIMPLEX
+bottomLeftCornerOfText = (10,50)
+fontScale              = 0.5
+fontColor              = (255,255,255)
+thickness              = 2
+lineType               = 2
 
 def pygame_callback(disp, image):
     org_array = np.frombuffer(image.raw_data, dtype=np.dtype('uint8'))
@@ -32,6 +41,7 @@ def remove():
     vehicle.destroy()
     walker.destroy()
 
+# ============================== 센서 콜백 ============================== #
 def rgb_callback(image, data_dict):
     data_dict['rgb_image'] = np.reshape(np.copy(image.raw_data), (image.height, image.width, 4))
 def depth_callback(image, data_dict):
@@ -44,6 +54,32 @@ def gnss_callback(data, data_dict):
     data_dict['gnss'] = [data.latitude, data.longitude]
 def imu_callback(data, data_dict):
     data_dict['imu'] = {'gyro': data.gyroscope,'accel': data.accelerometer,'compass': data.compass}
+
+# Draw the compass data (in radians) as a line with cardinal directions as capitals
+def draw_compass(img, theta):
+    
+    compass_center = (700, 100)
+    compass_size = 50
+    
+    cardinal_directions = [
+        ('N', [0,-1]),
+        ('E', [1,0]),
+        ('S', [0,1]),
+        ('W', [-1,0])
+    ]
+    
+    for car_dir in cardinal_directions:
+        cv2.putText(rgb_data['rgb_image'], car_dir[0], 
+        (int(compass_center[0] + 1.2 * compass_size * car_dir[1][0]), int(compass_center[1] + 1.2 * compass_size * car_dir[1][1])), 
+        font, 
+        fontScale,
+        fontColor,
+        thickness,
+        lineType)
+    
+    compass_point = (int(compass_center[0] + compass_size * math.sin(theta)), int(compass_center[1] - compass_size * math.cos(theta)))
+    cv2.line(img, compass_center, compass_point, (255, 255, 255), 3)
+
 
 client = carla.Client("localhost",2000)
 world = client.get_world()
@@ -59,7 +95,7 @@ bp_lib = world.get_blueprint_library()
 
 # ============================== 차량 ============================== #
 my_car_bp = bp_lib.filter('vehicle.tesla.model3')[0]
-spawn_0 = carla.Transform(carla.Location(x=-5,y=15,z=5),carla.Rotation(pitch=0,yaw=180,roll=0))
+spawn_0 = carla.Transform(carla.Location(x=-5,y=12.7,z=5),carla.Rotation(pitch=0,yaw=180,roll=0))
 
 # vehicle_bp_1 = bp_lib.filter("vehicle.lincoln.mkz_2020")[0]
 # spawn_1 = spawn_points[99]
@@ -88,7 +124,14 @@ sem_data = {'sem_image': np.zeros((image_h, image_w, 4))}
 # ============================== GNSS, IMU ============================== #
 gnss_bp = bp_lib.find('sensor.other.gnss')                                          # GNSS
 imu_bp = bp_lib.find('sensor.other.imu')                                            # IMU 
+gnss_data = {'gnss':[0,0]}
+imu_data = {'imu':{'gyro': carla.Vector3D(), 'accel': carla.Vector3D(), 'compass': 0}}
 
+
+
+
+
+# ============================== 보행자 ============================== #
 spawn_location_walker = carla.Transform(carla.Location(x=-35, y=2.7, z=3.0),carla.Rotation(pitch=0, yaw=180, roll=0))
 walker_bp = bp_lib.filter('walker.pedestrian.*')[3]
 
@@ -137,6 +180,10 @@ while True:
         depth_camera.listen(lambda image: depth_callback(image, depth_data))
         sem_camera.listen(lambda image: sem_callback(image, sem_data))
 
+
+        gnss_sensor.listen(lambda event: gnss_callback(event, gnss_data))
+        imu_sensor.listen(lambda event: imu_callback(event, imu_data))
+
         print("!!! initialized !!!")
         control = carla.VehicleControl()
         vehicle.apply_control(carla.VehicleControl(throttle=0.2,steer=0))
@@ -171,8 +218,8 @@ while True:
     if objectExist == True:                                                         # 우회전 시작
         if vehicle.get_location().x <= -29.1 and \
             my_t_light.get_state() == carla.libcarla.TrafficLightState.Green:
-            control.throttle = 0.6
-            control.steer = 0.22  
+            control.throttle = 0.5
+            control.steer = 0.2
             vehicle.apply_control(control)
         else:
             pass
@@ -236,6 +283,57 @@ while True:
 
     if cv2.waitKey(1) == ord('q'):
         pass
+
+    # Latitude from GNSS sensor
+    cv2.putText(rgb_data['rgb_image'], 'Lat: ' + str(gnss_data['gnss'][0]), 
+    (10,30), 
+    font, 
+    fontScale,
+    fontColor,
+    thickness,
+    lineType)
+    
+    # Longitude from GNSS sensor
+    cv2.putText(rgb_data['rgb_image'], 'Long: ' + str(gnss_data['gnss'][1]), 
+    (10,50), 
+    font, 
+    fontScale,
+    fontColor,
+    thickness,
+    lineType)
+    
+    # Calculate acceleration vector minus gravity
+    accel = imu_data['imu']['accel'] - carla.Vector3D(x=0,y=0,z=9.81)
+    
+    # Display acceleration magnitude
+    cv2.putText(rgb_data['rgb_image'], 'Accel: ' + str(accel.length()), 
+    (10,70), 
+    font, 
+    fontScale,
+    fontColor,
+    thickness,
+    lineType)
+    
+    # Gyroscope output
+    cv2.putText(rgb_data['rgb_image'], 'Gyro: ' + str(imu_data['imu']['gyro'].length()), 
+    (10,100), 
+    font, 
+    fontScale,
+    fontColor,
+    thickness,
+    lineType)
+    
+    # Compass value in radians, North is 0 radians
+    cv2.putText(rgb_data['rgb_image'], 'Compass: ' + str(imu_data['imu']['compass']), 
+    (10,120), 
+    font, 
+    fontScale,
+    fontColor,
+    thickness,
+    lineType)
+    
+    # Draw the compass
+    draw_compass(rgb_data['rgb_image'], imu_data['imu']['compass'])
 
     if cameraOn == True:
         rds = np.concatenate((rgb_data['rgb_image'], depth_data['depth_image'], sem_data['sem_image']), axis=1)
