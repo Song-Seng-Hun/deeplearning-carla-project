@@ -72,7 +72,8 @@ for ind in route_point:
 # pedestrian code
 
 world.set_pedestrians_seed(1235)
-ped_bp = random.choice(world.get_blueprint_library().filter("walker.pedestrian.*"))
+# ped_bp = random.choice(world.get_blueprint_library().filter("walker.pedestrian.*"))
+ped_bp = world.get_blueprint_library().find("walker.pedestrian.0002")
 
 ped_start_location = carla.Location(x=-34.3, y=2.7, z=0.2)
 ped_start_rotation = carla.Rotation(pitch=-0.3, yaw=180.0, roll=0.0)
@@ -82,18 +83,47 @@ ped_end_location = carla.Location(x=-60.3, y=2.7, z=0.2)
 ped_end_rotation = carla.Rotation(pitch=-0.3, yaw=-180.0, roll=0.0)
 dst_trans = carla.Transform(ped_end_location, ped_end_rotation)
 
+# use WalkerAIController
+# ped = world.spawn_actor(ped_bp, start_trans)
+# walker_controller_bp = world.get_blueprint_library().find('controller.ai.walker')
+# controller = world.spawn_actor(walker_controller_bp, carla.Transform(), ped)
+# controller.start()
+# controller.set_max_speed(2)
+
+# without WalkerAIController
 ped = world.spawn_actor(ped_bp, start_trans)
-walker_controller_bp = world.get_blueprint_library().find('controller.ai.walker')
-controller = world.spawn_actor(walker_controller_bp, carla.Transform(), ped)
-controller.start()
-controller.set_max_speed(2)
+ped_controller = carla.WalkerControl()
+ped_controller.speed = 0.1
+ped_controller.direction = carla.Vector3D(ped_end_location.x - ped_start_location.x, ped_end_location.y - ped_start_location.y, 0)
+ped_controller.jump = False
 
 # adding an actor to an actor list
 actor_list.append(ped)
-actor_list.append(controller)
+# actor_list.append(controller)     # activate using WalkerAIController
+
+def move_pedestrian(ped, ped_controller, ped_start_location, ped_end_location):
+    # Define the section where the pedestrian will walk
+    section_start = -54.3
+    section_end = -39.3
+    
+    # Move towards the end point
+    ped.apply_control(ped_controller)
+    distance_to_end = ped.get_location().distance(ped_end_location)
+    if distance_to_end < 1.0:
+        # Change direction and increase speed if at the end point
+        ped_controller.direction = carla.Vector3D(ped_start_location.x - ped_end_location.x, ped_start_location.y - ped_end_location.y, 0)
+        ped_controller.speed = 0.25 if ped.get_location().x > section_end else 0.1
+    
+    # Move towards the start point
+    ped.apply_control(ped_controller)
+    distance_to_start = ped.get_location().distance(ped_start_location)
+    if distance_to_start < 1.0:
+        # Change direction and increase speed if at the start point
+        ped_controller.direction = carla.Vector3D(ped_end_location.x - ped_start_location.x, ped_end_location.y - ped_start_location.y, 0)
+        ped_controller.speed = 0.25 if ped.get_location().x < section_start else 0.1
 #===========================================================================================
 
- #시뮬레이션 내에서 사용 가능한 모든 차량 블루프린트를 가져오는 데 사용됩니다
+#시뮬레이션 내에서 사용 가능한 모든 차량 블루프린트를 가져오는 데 사용됩니다
 bp_lib = world.get_blueprint_library()
 vehicle_bp = bp_lib.filter('vehicle.tesla.model3')[0]
 
@@ -142,10 +172,12 @@ camera.listen(lambda image: handle_image(display, image))
 
 vehicle.set_autopilot(True, tm_port)
 tm.ignore_lights_percentage(vehicle,100)
+tm.ignore_walkers_percentage(vehicle, 100)
 tm.set_path(vehicle, route)
 while True :
     pygame.event.pump()
     keys = pygame.key.get_pressed()
+    move_pedestrian(ped, ped_controller, ped_start_location, ped_end_location)
 
     #press esc to escape loop
     if keys[K_ESCAPE]:
