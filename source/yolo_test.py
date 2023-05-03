@@ -74,6 +74,13 @@ VIEW_HEIGHT = 720
 VIEW_FOV = 130
 HOSTIP = 'localhost'
 
+# ?
+global stop_time
+global elapsed_time
+elapsed_time = 0.0
+global time_check
+time_check = None
+
 
 # ==============================================================================
 # -- BasicSynchronousClient ----------------------------------------------------
@@ -109,6 +116,13 @@ class BasicSynchronousClient(object):
         Applies control to main car based on pygame pressed keys.
         Will return True If ESCAPE is hit, otherwise False to end main loop.
         """
+
+        # ?
+        global stop_time
+        global elapsed_time
+        global time_check
+        world_snapshot = self.world.get_snapshot()
+
         
         keys = pygame.key.get_pressed()
         if keys[K_ESCAPE]:
@@ -163,10 +177,38 @@ class BasicSynchronousClient(object):
                     if red_depth < red_min_depth:
                         red_min_depth = red_depth
             
+            # if red_min_depth != float('inf') :
+            #     if red_min_depth < 60 :
+            #         car.set_autopilot(False, self.tm_port)
+            #         control.brake = 1
+
+            # 사람을 봤을때도 일시정지
             if red_min_depth != float('inf') :
                 if red_min_depth < 60 :
                     car.set_autopilot(False, self.tm_port)
                     control.brake = 1
+
+            # 빨간불에서 5초간 일시정지
+            if red_min_depth != float('inf') :
+                if red_min_depth < 60 :
+                    car.set_autopilot(False, self.tm_port)
+                    # control.brake = 1
+                    stop_time = world_snapshot.timestamp.elapsed_seconds
+                    # self.car.apply_control(carla.VehicleControl(throttle=0.0, brake=1.0))
+                    time_check = True
+
+            if time_check == True:
+                elapsed_time = world_snapshot.timestamp.elapsed_seconds - stop_time
+                self.car.apply_control(carla.VehicleControl(throttle=0.0, brake=1.0))
+                print(elapsed_time)
+            if elapsed_time >= 2.0:
+                stop_time = None
+                time_check = False
+                elapsed_time = 0.0
+                # car.set_autopilot(False, self.tm_port)
+                car.set_autopilot(True, self.tm_port)
+                print("2초가 지났습니다. 경과시간을 재설정합니다.")
+
             else : 
                 car.set_autopilot(True, self.tm_port)
                 self.tm.ignore_lights_percentage(car,100)
