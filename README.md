@@ -9,3 +9,5 @@
 - myweather.py : 날씨 변경
 - tracker_test.py : cv2.tracker 테스트용
 - vehicle_control.py : 차량 수동조작 코드
+- dataprocessing.ipynb : 데이터의 라벨을 변경하고 합쳐서 새로운 데이터셋을 만드는 코드
+- train_yolo.ipynb : yolo 모델 학습 및 테스트 코드
