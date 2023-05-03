@@ -26,6 +26,34 @@ fontColor              = (255,255,255)
 thickness              = 2
 lineType               = 2
 
+VIRIDIS = np.array(cm.get_cmap('plasma').colors)
+VID_RANGE = np.linspace(0.0, 1.0, VIRIDIS.shape[0])
+LABEL_COLORS = np.array([
+    (255, 255, 255), # None
+    (70, 70, 70),    # Building
+    (100, 40, 40),   # Fences
+    (55, 90, 80),    # Other
+    (220, 20, 60),   # Pedestrian
+    (153, 153, 153), # Pole
+    (157, 234, 50),  # RoadLines
+    (128, 64, 128),  # Road
+    (244, 35, 232),  # Sidewalk
+    (107, 142, 35),  # Vegetation
+    (0, 0, 142),     # Vehicle
+    (102, 102, 156), # Wall
+    (220, 220, 0),   # TrafficSign
+    (70, 130, 180),  # Sky
+    (81, 0, 81),     # Ground
+    (150, 100, 100), # Bridge
+    (230, 150, 140), # RailTrack
+    (180, 165, 180), # GuardRail
+    (250, 170, 30),  # TrafficLight
+    (110, 190, 160), # Static
+    (170, 120, 50),  # Dynamic
+    (45, 60, 150),   # Water
+    (145, 170, 100), # Terrain
+]) / 255.0 # normalize each channel [0-1] since is what Open3D uses
+
 def pygame_callback(disp, image):
     org_array = np.frombuffer(image.raw_data, dtype=np.dtype('uint8'))
     array = np.reshape(org_array, (image.height, image.width, 4))
@@ -92,7 +120,25 @@ def draw_compass(img, theta):
     compass_point = (int(compass_center[0] + compass_size * math.sin(theta)), int(compass_center[1] - compass_size * math.cos(theta)))
     cv2.line(img, compass_center, compass_point, (255, 255, 255), 3)
 
-# LIDAR and RADAR callbacks
+# LiDAR and RADAR callbacks
+# def lidar_callback(point_cloud, point_list):
+#     """Prepares a point cloud with intensity
+#     colors ready to be consumed by Open3D"""
+#     data = np.copy(np.frombuffer(point_cloud.raw_data, dtype=np.dtype('f4')))
+#     data = np.reshape(data, (int(data.shape[0] / 4), 4))
+
+#     # Isolate the intensity and compute a color for it
+#     intensity = data[:, -1]
+#     intensity_col = 1.0 - np.log(intensity) / np.log(np.exp(-0.004 * 100))
+#     int_color = np.c_[
+#         np.interp(intensity_col, VID_RANGE, VIRIDIS[:, 0]),
+#         np.interp(intensity_col, VID_RANGE, VIRIDIS[:, 1]),
+#         np.interp(intensity_col, VID_RANGE, VIRIDIS[:, 2])]
+
+#     points = data[:, :-1]
+#     points[:, :1] = -points[:, :1]
+#     point_list.points = o3d.utility.Vector3dVector(points)
+#     point_list.colors = o3d.utility.Vector3dVector(int_color)
 
 def lidar_callback(point_cloud, point_list):
     """Prepares a point cloud with intensity
@@ -110,6 +156,32 @@ def lidar_callback(point_cloud, point_list):
 
     points = data[:, :-1]
     points[:, :1] = -points[:, :1]
+    point_list.points = o3d.utility.Vector3dVector(points)
+    point_list.colors = o3d.utility.Vector3dVector(int_color)
+
+
+def semantic_lidar_callback(point_cloud, point_list):
+    """Prepares a point cloud with semantic segmentation
+    colors ready to be consumed by Open3D"""
+    data = np.frombuffer(point_cloud.raw_data, dtype=np.dtype([
+        ('x', np.float32), ('y', np.float32), ('z', np.float32),
+        ('CosAngle', np.float32), ('ObjIdx', np.uint32), ('ObjTag', np.uint32)]))
+
+    # We're negating the y to correclty visualize a world that matches
+    # what we see in Unreal since Open3D uses a right-handed coordinate system
+    points = np.array([data['x'], -data['y'], data['z']]).T
+
+    # # An example of adding some noise to our data if needed:
+    # points += np.random.uniform(-0.05, 0.05, size=points.shape)
+
+    # Colorize the pointcloud based on the CityScapes color palette
+    labels = np.array(data['ObjTag'])
+    int_color = LABEL_COLORS[labels]
+
+    # # In case you want to make the color intensity depending
+    # # of the incident ray angle, you can use:
+    # int_color *= np.array(data['CosAngle'])[:, None]
+
     point_list.points = o3d.utility.Vector3dVector(points)
     point_list.colors = o3d.utility.Vector3dVector(int_color)
 
@@ -173,9 +245,9 @@ gnss_data = {'gnss':[0,0]}
 imu_data = {'imu':{'gyro': carla.Vector3D(), 'accel': carla.Vector3D(), 'compass': 0}}
 
 # ============================== LiDAR, RADAR ============================== #
-# Auxilliary code for colormaps and axes
-VIRIDIS = np.array(cm.get_cmap('plasma').colors)
-VID_RANGE = np.linspace(0.0, 1.0, VIRIDIS.shape[0])
+# # Auxilliary code for colormaps and axes
+# VIRIDIS = np.array(cm.get_cmap('plasma').colors)
+# VID_RANGE = np.linspace(0.0, 1.0, VIRIDIS.shape[0])
 COOL_RANGE = np.linspace(0.0, 1.0, VIRIDIS.shape[0])
 COOL = np.array(cm.get_cmap('winter')(COOL_RANGE))
 COOL = COOL[:,:3]
@@ -198,21 +270,21 @@ def add_open3d_axis(vis):
         [0.0, 0.0, 1.0]]))
     vis.add_geometry(axis)
 
-# Set up LIDAR and RADAR, parameters are to assisst visualisation
-lidar_bp = bp_lib.find('sensor.lidar.ray_cast') 
-lidar_bp.set_attribute('range', '100.0')
-lidar_bp.set_attribute('noise_stddev', '0.1')
-lidar_bp.set_attribute('upper_fov', '15.0')
-lidar_bp.set_attribute('lower_fov', '-25.0')
-lidar_bp.set_attribute('channels', '64.0')
-lidar_bp.set_attribute('rotation_frequency', '20.0')
-lidar_bp.set_attribute('points_per_second', '500000')
-# lidar_init_trans = carla.Transform(carla.Location(z=2))
+# # Set up LIDAR and RADAR, parameters are to assisst visualisation
+# lidar_bp = bp_lib.find('sensor.lidar.ray_cast') 
+# lidar_bp.set_attribute('range', '100.0')
+# lidar_bp.set_attribute('noise_stddev', '0.1')
+# lidar_bp.set_attribute('upper_fov', '15.0')
+# lidar_bp.set_attribute('lower_fov', '-25.0')
+# lidar_bp.set_attribute('channels', '64.0')
+# lidar_bp.set_attribute('rotation_frequency', '20.0')
+# lidar_bp.set_attribute('points_per_second', '500000')
+# # lidar_init_trans = carla.Transform(carla.Location(z=2))
 radar_bp = bp_lib.find('sensor.other.radar') 
 radar_bp.set_attribute('horizontal_fov', '30.0')
 radar_bp.set_attribute('vertical_fov', '30.0')
 radar_bp.set_attribute('points_per_second', '10000')
-# radar_init_trans = carla.Transform(carla.Location(z=2))
+# # radar_init_trans = carla.Transform(carla.Location(z=2))
 
 # Add auxilliary data structures
 point_list = o3d.geometry.PointCloud()
@@ -230,6 +302,49 @@ vis.get_render_option().background_color = [0.05, 0.05, 0.05]
 vis.get_render_option().point_size = 1
 vis.get_render_option().show_coordinate_frame = True
 add_open3d_axis(vis)
+
+delta = 0.05
+
+def generate_lidar_bp(bp_lib):
+    """Generates a CARLA blueprint based on the script parameters"""
+    # if :
+    #     lidar_bp = world.get_blueprint_library().find('sensor.lidar.ray_cast_semantic')
+    # else:
+    lidar_bp = bp_lib.find('sensor.lidar.ray_cast')
+    # if arg.no_noise:
+    #     lidar_bp.set_attribute('dropoff_general_rate', '0.0')
+    #     lidar_bp.set_attribute('dropoff_intensity_limit', '1.0')
+    #     lidar_bp.set_attribute('dropoff_zero_intensity', '0.0')
+    # else:
+    lidar_bp.set_attribute('noise_stddev', '0.1')
+    lidar_bp.set_attribute('upper_fov', '15.0')
+    lidar_bp.set_attribute('lower_fov', '-25.0')
+    lidar_bp.set_attribute('channels', '64.0')
+    lidar_bp.set_attribute('range', '100')
+    lidar_bp.set_attribute('rotation_frequency', '20.0')
+    lidar_bp.set_attribute('points_per_second', '500000')
+    return lidar_bp
+
+
+def add_open3d_axis(vis):
+    """Add a small 3D axis on Open3D Visualizer"""
+    axis = o3d.geometry.LineSet()
+    axis.points = o3d.utility.Vector3dVector(np.array([
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0]]))
+    axis.lines = o3d.utility.Vector2iVector(np.array([
+        [0, 1],
+        [0, 2],
+        [0, 3]]))
+    axis.colors = o3d.utility.Vector3dVector(np.array([
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0]]))
+    vis.add_geometry(axis)
+
+lidar_bp = generate_lidar_bp(bp_lib)
 
 
 # ============================== 보행자 ============================== #
@@ -291,23 +406,24 @@ while True:
         gnss_sensor.listen(lambda event: gnss_callback(event, gnss_data))
         imu_sensor.listen(lambda event: imu_callback(event, imu_data))
         lidar.listen(lambda data: lidar_callback(data, point_list))
+        
         radar.listen(lambda data: radar_callback(data, radar_list))
 
         print("!!! initialized !!!")
         control = carla.VehicleControl()
-        vehicle.apply_control(carla.VehicleControl(throttle=0.2,steer=0))
+        vehicle.apply_control(carla.VehicleControl(throttle=0.0,steer=0))
         generate = False
         objectExist = True
         cameraOn = True
 
     if my_t_light.get_state() == carla.libcarla.TrafficLightState.Green and objectExist == True:
-        vehicle.apply_control(carla.VehicleControl(throttle=0.5,steer=0))
+        vehicle.apply_control(carla.VehicleControl(throttle=0.0,steer=0))
 
     if my_t_light.get_state() == carla.libcarla.TrafficLightState.Yellow and objectExist == True:
-        vehicle.apply_control(carla.VehicleControl(throttle=0.4,steer=0))
+        vehicle.apply_control(carla.VehicleControl(throttle=0.0,steer=0))
 
     if my_t_light.get_state() == carla.libcarla.TrafficLightState.Red and objectExist == True:
-        vehicle.apply_control(carla.VehicleControl(throttle=0.3,steer=0))
+        vehicle.apply_control(carla.VehicleControl(throttle=0.0,steer=0))
 
     if objectExist == True:                                                         # 직진 종료
         if vehicle.get_location().x < -64:
@@ -325,7 +441,7 @@ while True:
     if objectExist == True:                                                         # 우회전 시작
         if vehicle.get_location().x <= -29.1 and \
             my_t_light.get_state() == carla.libcarla.TrafficLightState.Green:
-            control.throttle = 0.5
+            control.throttle = 0.0
             control.steer = 0.2
             vehicle.apply_control(control)
         else:
@@ -451,6 +567,7 @@ while True:
     vis.update_renderer()
     # # This can fix Open3D jittering issues:
     time.sleep(0.005)
+    world.tick()
     frame += 1
 
     if cameraOn == True:
