@@ -14,7 +14,7 @@ Controls:
 # -- find carla module ---------------------------------------------------------
 # ==============================================================================
 from ultralytics import YOLO
-model = YOLO("/home/carla/PythonAPI/CARLA-project/test_scenario/best.pt")
+model = YOLO("/home/carla/PythonAPI/test/best_ver2.pt")
 
 import cv2
 import time
@@ -67,7 +67,6 @@ try:
 except ImportError:
     raise RuntimeError('cannot import numpy, make sure numpy package is installed')
 
-scenario_flag = False
 
 VIEW_WIDTH = 1280
 VIEW_HEIGHT = 720
@@ -92,6 +91,8 @@ class BasicSynchronousClient(object):
         self.depth_camera = None
         self.car = None
         self.walker = None
+        self.scenario_flag = False
+        self.bounding_boxes = None
 
         self.display = None
         self.image = None
@@ -133,20 +134,48 @@ class BasicSynchronousClient(object):
         if keys[K_r] : 
             car.set_transform(self.spawn_points[104])
         elif keys[K_p]:
-            car.set_autopilot(True, self.tm_port)
-            self.tm.ignore_lights_percentage(car,100)
-            self.tm.ignore_walkers_percentage(car,100)
-            self.tm.random_left_lanechange_percentage(car, 0)
-            self.tm.random_right_lanechange_percentage(car, 0)
-            self.tm.set_path(car, self.route)
+            self.scenario_flag = True
             
         if keys[K_o]:
             car.set_autopilot(False, self.tm_port)
+            self.scenario_flag = False
             control.brake = 1
 
         if car.get_velocity().length() == 0 :
             control.brake = 0
         
+        if self.scenario_flag == True :
+
+            red_min_depth = float('inf')  # 가장 큰 수를 초기값으로 설정
+            ped_min_depth = float('inf')
+
+            for box in self.bounding_boxes:
+                x1, y1, x2, y2, c, idx = box
+                width, height = abs(x2-x1), abs(y2-y1)
+                if idx == 1:
+                    ped_depth = self.depth_image[int(min(y1, y2) + height // 2)][int(min(x1, x2) + width // 2)]
+                    if ped_depth < ped_min_depth:
+                        min_depth = ped_depth
+
+                if idx == 2:
+                    red_depth = self.depth_image[int(min(y1, y2) + height // 2)][int(min(x1, x2) + width // 2)]
+                    if red_depth < red_min_depth:
+                        red_min_depth = red_depth
+                print(min_depth)
+            
+            if min_depth != float('inf') :
+                if min_depth < 60 :
+                    car.set_autopilot(False, self.tm_port)
+                    control.brake = 1
+            else : 
+                car.set_autopilot(True, self.tm_port)
+                self.tm.ignore_lights_percentage(car,100)
+                self.tm.ignore_walkers_percentage(car,100)
+                self.tm.random_left_lanechange_percentage(car, 0)
+                self.tm.random_right_lanechange_percentage(car, 0)
+                self.tm.set_path(car, self.route)
+
+
 
         car.apply_control(control)
         return False
@@ -172,7 +201,8 @@ class BasicSynchronousClient(object):
 
     def setup_walker(self) :
         
-        walker_bp = random.choice(self.world.get_blueprint_library().filter('walker.*'))
+        #walker_bp = random.choice(self.world.get_blueprint_library().filter('walker.*'))
+        walker_bp = random.choice(self.world.get_blueprint_library().filter('walker.pedestrian.0042'))
         rotation = carla.Rotation(pitch=0, yaw=180.0, roll=0.0)
         transform = carla.Transform(self.crosswalks[16], rotation)
         self.walker = self.world.spawn_actor(walker_bp, transform)
@@ -330,8 +360,8 @@ class BasicSynchronousClient(object):
 
             font = pygame.font.SysFont(None, 48)
 
-            boxes = result.boxes.boxes
-            for box in boxes :
+            self.bounding_boxes = result.boxes.boxes
+            for box in self.bounding_boxes :
                 x1, y1, x2, y2,c,idx = box
                 width, height = abs(x2-x1), abs(y2-y1)
                 text_surface = font.render(result.names[int(idx)]+", depth : "+str(self.depth_image[int(min(y1,y2)+height//2)][int(min(x1,x2)+width//2)]), True, (255, 0, 0))
@@ -367,7 +397,7 @@ class BasicSynchronousClient(object):
 
             # 날씨 설정
             self.world.set_weather(carla.WeatherParameters(
-                sun_altitude_angle=10.0,
+                sun_altitude_angle=-10.0,
                 cloudiness=0.0,
                 precipitation=0.0,
                 precipitation_deposits=0.0,
