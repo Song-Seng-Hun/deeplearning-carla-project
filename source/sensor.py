@@ -146,10 +146,42 @@ bp_lib = world.get_blueprint_library()
 my_car_bp = bp_lib.filter('vehicle.tesla.model3')[0]
 spawn_0 = carla.Transform(carla.Location(x=-5,y=12.7,z=5),carla.Rotation(pitch=0,yaw=180,roll=0))
 
-# vehicle_bp_1 = bp_lib.filter("vehicle.lincoln.mkz_2020")[0]
-# spawn_1 = spawn_points[99]
+# 버스 오토바이 승합차 트럭 세단 세단 suv suv
+car_list = ['vehicle.volkswagen.t2_2021','vehicle.vespa.zx125','vehicle.mercedes.sprinter',
+            'vehicle.carlamotors.european_hgv','vehicle.tesla.model3','vehicle.mercedes.coupe_2020',
+            'vehicle.audi.etron','vehicle.nissan.patrol_2021']
+spawn_point_list = [0,1,61,62,79,107,99,102]
+
+# # for i in range(len(car_list)):
+# vehicle_bp_1 = bp_lib.filter('vehicle.tesla.model3')[0]
+# # for i in range(len(car_list)):
+# spawn_1 = spawn_points[0]
 # vehicle_1 = world.spawn_actor(vehicle_bp_1, spawn_1)
 
+vehicle_bp_1 = bp_lib.find('vehicle.volkswagen.t2_2021')
+spawn_1 = spawn_points[0]
+vehicle_1 = world.spawn_actor(vehicle_bp_1, spawn_1)
+vehicle_bp_2 = bp_lib.find('vehicle.vespa.zx125')
+spawn_2 = spawn_points[1]
+vehicle_2 = world.spawn_actor(vehicle_bp_2, spawn_2)
+vehicle_bp_3 = bp_lib.find('vehicle.audi.etron')
+spawn_3 = spawn_points[2]
+vehicle_3 = world.spawn_actor(vehicle_bp_3, spawn_3)
+vehicle_bp_4 = bp_lib.find('vehicle.mercedes.sprinter')
+spawn_4 = spawn_points[3]
+vehicle_4 = world.spawn_actor(vehicle_bp_4, spawn_4)
+vehicle_bp_5 = bp_lib.find('vehicle.carlamotors.carlacola')
+spawn_5 = spawn_points[4]
+vehicle_5 = world.spawn_actor(vehicle_bp_5, spawn_5)
+vehicle_bp_6 = bp_lib.find('vehicle.tesla.model3')
+spawn_6 = spawn_points[5]
+vehicle_6 = world.spawn_actor(vehicle_bp_6, spawn_6)
+vehicle_bp_7 = bp_lib.find('vehicle.mercedes.coupe_2020')
+spawn_7 = spawn_points[6]
+vehicle_7 = world.spawn_actor(vehicle_bp_7, spawn_7)
+vehicle_bp_8 = bp_lib.find('vehicle.nissan.patrol_2021')
+spawn_8 = spawn_points[7]
+vehicle_8 = world.spawn_actor(vehicle_bp_8, spawn_8)
 
 spectator = world.get_spectator()
 spectator.set_transform(spawn_0)
@@ -252,9 +284,7 @@ my_t_light.set_yellow_time(0.5)
 my_t_light.set_red_time(0.5)
 my_t_light.set_state(carla.TrafficLightState.Green)
 
-
-
-display = pygame.display.set_mode((1280, 720),pygame.HWSURFACE | pygame.DOUBLEBUF)
+display = pygame.display.set_mode((800, 600),pygame.HWSURFACE | pygame.DOUBLEBUF)
 
 frame = 0
 
