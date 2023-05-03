@@ -45,6 +45,7 @@ def remove():
     sem_camera.destroy()
     gnss_sensor.destroy()
     imu_sensor.destroy()
+    vis.destroy_window()
     lidar.destroy()
     radar.destroy()
     vehicle.destroy()
