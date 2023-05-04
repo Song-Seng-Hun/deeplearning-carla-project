@@ -1,7 +1,7 @@
 # CARLA-project  
 
 ## 조원 소개
-
+- [송승훈](https://github.com/DL-project-team/CARLA-project/tree/test_ssh)
 ## 코드 설명
 - ~.py :
 - ~.ipynb :
