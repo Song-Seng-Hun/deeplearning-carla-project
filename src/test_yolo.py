@@ -14,7 +14,7 @@ Controls:
 # -- find carla module ---------------------------------------------------------
 # ==============================================================================
 from ultralytics import YOLO
-model = YOLO("/home/carla/PythonAPI/examples/src/best_ver7.pt")
+model = YOLO("/home/carla/PythonAPI/examples/src/best_ver9.pt")
 
 import cv2
 import time
@@ -134,9 +134,8 @@ class BasicSynchronousClient(object):
 
         if keys[K_r] : 
             car.set_transform(self.spawn_points[104])
-            physics_control = car.get_physics_control()
-            physics_control.use_sweep_wheel_collision = True
-            car.apply_physics_control(physics_control)
+            # spawn 시 이전 운동에 대한 관성 방지(raycast 사용)
+            self.modify_physics(car)
         elif keys[K_p]:
             self.scenario_flag = True
             
@@ -217,12 +216,16 @@ class BasicSynchronousClient(object):
                     car.set_autopilot(False, self.tm_port)
                     control.brake = 1
 
-            
-            
-
-
         car.apply_control(control)
         return False
+    
+    def modify_physics(self, actor):
+        try :
+            physics_control = actor.get_physics_control()
+            physics_control.use_sweep_wheel_collision = True
+            actor.apply_physics_control(physics_control)
+        except :
+            pass
 
     def set_synchronous_mode(self, synchronous_mode):
         """
