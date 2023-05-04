@@ -77,21 +77,12 @@ def draw_compass(img, theta):
     compass_center = (700, 100)
     compass_size = 50
     cardinal_directions = [
-        ('N', [0,-1]),
-        ('E', [1,0]),
-        ('S', [0,1]),
-        ('W', [-1,0])
-    ]
+        ('N', [0,-1]), ('E', [1,0]), ('S', [0,1]), ('W', [-1,0])]
     
     for car_dir in cardinal_directions:
         cv2.putText(rgb_data['rgb_image'], car_dir[0], 
         (int(compass_center[0] + 1.2 * compass_size * car_dir[1][0]), int(compass_center[1] + 1.2 * compass_size * car_dir[1][1])), 
-        font, 
-        fontScale,
-        fontColor,
-        thickness,
-        lineType)
-    
+        font, fontScale, fontColor, thickness, lineType)
     compass_point = (int(compass_center[0] + compass_size * math.sin(theta)), int(compass_center[1] - compass_size * math.cos(theta)))
     cv2.line(img, compass_center, compass_point, (255, 255, 255), 3)
 
