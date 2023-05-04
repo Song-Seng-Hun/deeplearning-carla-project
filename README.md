@@ -12,6 +12,10 @@
 ## 주제 선정 배경
 ![image](https://user-images.githubusercontent.com/69943723/236127436-4b56bd91-e93a-4fc0-ab4e-8469725d4482.png)
 
+## 개발 환경 구축
+![image](https://user-images.githubusercontent.com/69943723/236130224-4f7c69af-5f77-4750-8753-2e0a9b9a111b.png)
+![image](https://user-images.githubusercontent.com/69943723/236130247-c2bacefe-ee28-43de-9dad-73838b2510e8.png)
+
 
 ## 코드 설명
 - ~.py :
