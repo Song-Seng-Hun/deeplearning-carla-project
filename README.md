@@ -37,6 +37,9 @@
 ![image](https://user-images.githubusercontent.com/69943723/236137885-09d6c4da-42cb-458f-86f7-1ba71637b66d.png)
 
 ## 코드 설명
+### docker
+### carla
+### yolo
 - ~.py :
 - ~.ipynb :
 
@@ -47,6 +50,7 @@
 - [횡단보도 dataset](https://universe.roboflow.com/john-gouej/crosswalk-v2/browse)
 - [신호등 보강 dataset (제작)](https://universe.roboflow.com/amrws/dl_project_merge)
 - [횡단보도 위 사람 보강 dataset (제작)](https://universe.roboflow.com/amrws/pedesatrian-crosswalks)
-
+carla_dataset1, carla_dataset2의 데이터를 기반으로 횡단보도, 신호등, 보행자 dataset을 보강해서 사용
   
+### 기타
 - [발표 PPT 파일](https://docs.google.com/presentation/d/1ndLPQ3ZGaDhEzL4bOqJjLXx3oib0LuxKsohafno7ztk/edit?usp=sharing)
