@@ -9,10 +9,7 @@ import numpy as np
 import random
 
 # 차량 생성위치 도로 ID(시뮬레이터 실행할때마다 ID는 바뀜)
-# 상 0 1
-# 하 51 52
-# 좌 79 137
-# 우 99 102
+# 상 0 1 하 51 52 좌 79 137 우 99 102
 
 client = carla.Client("localhost",2000)
 world = client.get_world()
@@ -25,6 +22,13 @@ fontScale              = 0.5
 fontColor              = (255,255,255)
 thickness              = 2
 lineType               = 2
+
+car_list = ['vehicle.volkswagen.t2_2021','vehicle.vespa.zx125','vehicle.mercedes.sprinter',
+            'vehicle.carlamotors.carlacola','vehicle.tesla.model3','vehicle.mercedes.coupe_2020',
+            'vehicle.audi.etron','vehicle.nissan.patrol_2021']
+spawn_point_list = [0,1,51,52,79,137,99,102]
+car_on_location_list = []
+npc_car_list = []
 
 def pygame_callback(disp, image):
     org_array = np.frombuffer(image.raw_data, dtype=np.dtype('uint8'))
@@ -134,9 +138,9 @@ def radar_callback(data, point_list):
     point_list.colors = o3d.utility.Vector3dVector(int_color)
 
 # ============================== 웨이포인트 ============================== #
-# update required
-map = world.get_map()
-waypoint = world.get_map().get_waypoint
+# # update required
+# map = world.get_map()
+# waypoint = world.get_map().get_waypoint
 
 for i, spawn_point in enumerate(spawn_points):
     world.debug.draw_string(spawn_point.location, str(i), life_time=60)
@@ -146,19 +150,13 @@ bp_lib = world.get_blueprint_library()
 my_car_bp = bp_lib.filter('vehicle.tesla.model3')[0]
 spawn_0 = carla.Transform(carla.Location(x=-5,y=12.7,z=1),carla.Rotation(pitch=0,yaw=180,roll=0))
 
-car_list = ['vehicle.volkswagen.t2_2021','vehicle.vespa.zx125','vehicle.mercedes.sprinter',
-            'vehicle.carlamotors.carlacola','vehicle.tesla.model3','vehicle.mercedes.coupe_2020',
-            'vehicle.audi.etron','vehicle.nissan.patrol_2021']
-spawn_point_list = [0,1,51,52,79,137,99,102]
-spawned_car_list = []
-
 for i in range(len(car_list)):
     vehicle_each = None
     vehicle_bp_each = bp_lib.find(car_list[i])
     spawn_each = spawn_points[spawn_point_list[i]]
     # spawn_each = spawn_each + carla.Transform(carla.Location(z=5))
     vehicle_each = world.spawn_actor(vehicle_bp_each, spawn_each)
-    spawned_car_list.append(vehicle_each)
+    car_on_location_list.append(vehicle_each)
 
 # ============================== 관전자 ============================== #
 spectator = world.get_spectator()
@@ -255,10 +253,11 @@ frame = 0
 
 objectExist = False
 generate = False
-cameraOn = False
 trafficOn = False
-quitGame = False
+autoPilotEnable = False
+cameraOn = False
 lidarRadarOn = False
+quitGame = False
 
 cv2.waitKey(1)
 
@@ -359,12 +358,19 @@ while True:
         pass
 
     if trafficOn == True:                                                           # 월드에 차량 랜덤 스폰
-        for i in range(10): 
-            npc_car_bp = random.choice(bp_lib.filter('vehicle')) 
+        for i in range(10):
+            npc_car_bp = random.choice(bp_lib.filter('vehicle'))
             npc_car = world.try_spawn_actor(npc_car_bp, random.choice(spawn_points)) 
-        for npc_car in world.get_actors().filter('*vehicle*'): 
-            npc_car.set_autopilot(True) 
+        for npc_car in world.get_actors().filter('*vehicle*'):
+            npc_car.set_autopilot(True)
         trafficOn = False
+
+    if autoPilotEnable == True:
+        for i,car in enumerate(car_on_location_list):
+            car.set_autopilot(True)
+    elif autoPilotEnable == False:
+        for i,car in enumerate(car_on_location_list):
+            car.set_autopilot(False)
 
     for event in pygame.event.get() :
         if event.type == pygame.KEYDOWN:           
@@ -392,6 +398,13 @@ while True:
                 world.load_map_layer(carla.MapLayer.All)
             if event.key == pygame.K_g:                                             # g키는 월드에 차량 생성
                 trafficOn = True
+            if event.key == pygame.K_a:
+                if autoPilotEnable == False:
+                    autoPilotEnable = True
+                    print("car_on_locatiob autopilot enabled")
+                elif autoPilotEnable == True:
+                    autoPilotEnable = False
+                    print("car_on_locatiob autopilot disabled")
 
     if quitGame == True:
         pygame.quit()
