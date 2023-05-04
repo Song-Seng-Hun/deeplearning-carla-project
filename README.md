@@ -30,6 +30,8 @@
 ![image](https://user-images.githubusercontent.com/69943723/236143561-f3d84f55-1cfe-4f24-84c9-69ebbb87f136.png)
 ![image](https://user-images.githubusercontent.com/69943723/236143608-1b84e56e-44e5-4543-9234-009253f9aa71.png)
 
+## 시연 영상
+
 ## 그 외 시도
 ![image](https://user-images.githubusercontent.com/69943723/236137875-1eefc5db-875c-4aad-9d58-284599fdc1a5.png)
 ![image](https://user-images.githubusercontent.com/69943723/236137885-09d6c4da-42cb-458f-86f7-1ba71637b66d.png)
@@ -39,4 +41,12 @@
 - ~.ipynb :
 
 ## 데이터 출처
+### [roboflow](https://universe.roboflow.com/)
+- [carla dataset1](https://universe.roboflow.com/carladataset-qxhsv/carla_dataset)
+- [carla dataset2](https://universe.roboflow.com/alec-hantson-student-howest-be/carla-izloa)
+- [횡단보도 dataset](https://universe.roboflow.com/john-gouej/crosswalk-v2/browse)
+- [신호등 보강 dataset (제작)](https://universe.roboflow.com/amrws/dl_project_merge)
+- [횡단보도 위 사람 보강 dataset (제작)](https://universe.roboflow.com/amrws/pedesatrian-crosswalks)
+
+  
 - [발표 PPT 파일](https://docs.google.com/presentation/d/1ndLPQ3ZGaDhEzL4bOqJjLXx3oib0LuxKsohafno7ztk/edit?usp=sharing)
