@@ -15,7 +15,7 @@ client = carla.Client("localhost",2000)
 world = client.get_world()
 spawn_points = world.get_map().get_spawn_points()
 
-# Some parameters for text on screen
+# GNSS, IMU 폰트 설정
 font                   = cv2.FONT_HERSHEY_SIMPLEX
 bottomLeftCornerOfText = (10,50)
 fontScale              = 0.5
@@ -23,6 +23,7 @@ fontColor              = (255,255,255)
 thickness              = 2
 lineType               = 2
 
+# 트래픽 요소
 car_list = ['vehicle.volkswagen.t2_2021','vehicle.vespa.zx125','vehicle.mercedes.sprinter',
             'vehicle.carlamotors.carlacola','vehicle.tesla.model3','vehicle.mercedes.coupe_2020',
             'vehicle.audi.etron','vehicle.nissan.patrol_2021']
@@ -41,7 +42,7 @@ def pygame_callback(disp, image):
     pygame.display.flip()
 
 def remove():
-    print("!!! destroyed !!!")
+    print(" destroyed. ")
     cv2.destroyAllWindows()
     rgb_camera_1.destroy()
     rgb_camera_2.destroy()
@@ -71,12 +72,10 @@ def gnss_callback(data, data_dict):
 def imu_callback(data, data_dict):
     data_dict['imu'] = {'gyro': data.gyroscope,'accel': data.accelerometer,'compass': data.compass}
 
-# Draw the compass data (in radians) as a line with cardinal directions as capitals
+# 컴퍼스 그리기 
 def draw_compass(img, theta):
-    
     compass_center = (700, 100)
     compass_size = 50
-    
     cardinal_directions = [
         ('N', [0,-1]),
         ('E', [1,0]),
@@ -96,26 +95,25 @@ def draw_compass(img, theta):
     compass_point = (int(compass_center[0] + compass_size * math.sin(theta)), int(compass_center[1] - compass_size * math.cos(theta)))
     cv2.line(img, compass_center, compass_point, (255, 255, 255), 3)
 
-# LIDAR callback
+# LiDAR 콜백
+# 데이터의 마지막 배열인 밝기값을 색과 결합하여 거리를 시각적으로 표현
+# Open3D를 통해 거리/색상의 포인트 클라우드 생성 준비
 def lidar_callback(point_cloud, point_list):
-    """Prepares a point cloud with intensity
-    colors ready to be consumed by Open3D"""
     data = np.copy(np.frombuffer(point_cloud.raw_data, dtype=np.dtype('f4')))
     data = np.reshape(data, (int(data.shape[0] / 4), 4))
-
-    # Isolate the intensity and compute a color for it
     intensity = data[:, -1]
     intensity_col = 1.0 - np.log(intensity) / np.log(np.exp(-0.004 * 100))
     int_color = np.c_[
         np.interp(intensity_col, VID_RANGE, VIRIDIS[:, 0]),
         np.interp(intensity_col, VID_RANGE, VIRIDIS[:, 1]),
         np.interp(intensity_col, VID_RANGE, VIRIDIS[:, 2])]
-
     points = data[:, :-1]
+    # 포인트 클라우드 3D 좌표계와 카를라 시뮬레이터의 좌표계를 맞춤
     points[:, :1] = -points[:, :1]
     point_list.points = o3d.utility.Vector3dVector(points)
     point_list.colors = o3d.utility.Vector3dVector(int_color)
-# RADAR callback
+
+# RADAR 콜백
 def radar_callback(data, point_list):
     radar_data = np.zeros((len(data), 4))
     
@@ -174,19 +172,20 @@ depth_data = {'depth_image': np.zeros((image_h, image_w, 4))}
 sem_data = {'sem_image': np.zeros((image_h, image_w, 4))}
 
 # ============================== GNSS, IMU ============================== #
-gnss_bp = bp_lib.find('sensor.other.gnss')                                          # GNSS
-imu_bp = bp_lib.find('sensor.other.imu')                                            # IMU 
+gnss_bp = bp_lib.find('sensor.other.gnss')
+imu_bp = bp_lib.find('sensor.other.imu')
 gnss_data = {'gnss':[0,0]}
 imu_data = {'imu':{'gyro': carla.Vector3D(), 'accel': carla.Vector3D(), 'compass': 0}}
 
 # ============================== LiDAR, RADAR ============================== #
-# Auxilliary code for colormaps and axes
+# 콜백함수에 사용될 거리에 따른 색깔 파라미터 설정
 VIRIDIS = np.array(cm.get_cmap('plasma').colors)
 VID_RANGE = np.linspace(0.0, 1.0, VIRIDIS.shape[0])
 COOL_RANGE = np.linspace(0.0, 1.0, VIRIDIS.shape[0])
 COOL = np.array(cm.get_cmap('winter')(COOL_RANGE))
 COOL = COOL[:,:3]
 
+# LiDAR and RADAR 화면에 보여질 좌표축 그리기
 def add_open3d_axis(vis):
     """Add a small 3D axis on Open3D Visualizer"""
     axis = o3d.geometry.LineSet()
@@ -205,7 +204,7 @@ def add_open3d_axis(vis):
         [0.0, 0.0, 1.0]]))
     vis.add_geometry(axis)
 
-# Set up LIDAR and RADAR, parameters are to assisst visualisation
+# 라이다와 레이더의 속성 초기화
 lidar_bp = bp_lib.find('sensor.lidar.ray_cast') 
 lidar_bp.set_attribute('range', '100.0')
 lidar_bp.set_attribute('noise_stddev', '0.1')
@@ -221,7 +220,7 @@ radar_bp.set_attribute('vertical_fov', '30.0')
 radar_bp.set_attribute('points_per_second', '10000')
 radar_init_trans = carla.Transform(carla.Location(z=2))
 
-# Add auxilliary data structures
+# 포인트 클라우드 데이터를 저장할 리스트
 point_list = o3d.geometry.PointCloud()
 radar_list = o3d.geometry.PointCloud()
 
@@ -248,9 +247,7 @@ my_t_light.set_state(carla.TrafficLightState.Green)
 # ============================== 파이게임 화면 ============================== #
 display = pygame.display.set_mode((800, 600),pygame.HWSURFACE | pygame.DOUBLEBUF)
 
-
-frame = 0
-
+# ============================== 키보드 이벤트에 사용될 변수 ============================== #
 objectExist = False
 generate = False
 trafficOn = False
@@ -259,6 +256,8 @@ cameraOn = False
 lidarRadarOn = False
 quitGame = False
 
+
+frame = 0
 cv2.waitKey(1)
 
 while True:
@@ -286,7 +285,7 @@ while True:
         lidar.listen(lambda data: lidar_callback(data, point_list))
         radar.listen(lambda data: radar_callback(data, radar_list))
 
-        # Open3D visualiser for LIDAR and RADAR
+        # 라이다와 레이더 정보를 이용하여 Open3d의 Visualizer로 화면상에 시각화되도록 화면 한번 생성
         if lidarRadarOn == False:
             vis = o3d.visualization.Visualizer()
             vis.create_window(
@@ -301,7 +300,7 @@ while True:
             add_open3d_axis(vis)
             lidarRadarOn = True
 
-        print("!!! initialized !!!")
+        print(" initialized. ")
         control = carla.VehicleControl()
         vehicle.apply_control(carla.VehicleControl(throttle=0.2,steer=0))
         generate = False
@@ -357,7 +356,7 @@ while True:
     else:
         pass
 
-    if trafficOn == True:                                                           # 월드에 차량 랜덤 스폰
+    if trafficOn == True:
         for i in range(10):
             npc_car_bp = random.choice(bp_lib.filter('vehicle'))
             npc_car = world.try_spawn_actor(npc_car_bp, random.choice(spawn_points)) 
@@ -372,7 +371,7 @@ while True:
         for i,car in enumerate(car_on_location_list):
             car.set_autopilot(False)
 
-    for event in pygame.event.get() :
+    for event in pygame.event.get() :                                               # 키보드 이벤트 
         if event.type == pygame.KEYDOWN:           
             if event.key == pygame.K_ESCAPE:                                        # 오브젝트 정리 및 세션 종료
                 if objectExist == True:
@@ -464,6 +463,7 @@ while True:
     # Draw the compass
     draw_compass(rgb_data['rgb_image'], imu_data['imu']['compass'])
 
+    # 라이다와 레이더 그리기 화면에 포인트 클라우드 업데이트
     if lidarRadarOn == True:
         if frame == 2:
             vis.add_geometry(point_list)
@@ -476,6 +476,7 @@ while True:
         time.sleep(0.005)
         frame += 1
 
+    # 1X3 카메라 화면 출력
     if cameraOn == True:
         rds = np.concatenate((rgb_data['rgb_image'], depth_data['depth_image'], sem_data['sem_image']), axis=1)
         cv2.imshow("camera", rds)
