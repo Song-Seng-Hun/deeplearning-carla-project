@@ -133,8 +133,8 @@ def radar_callback(data, point_list):
     point_list.points = o3d.utility.Vector3dVector(points)
     point_list.colors = o3d.utility.Vector3dVector(int_color)
 
-
 # ============================== 웨이포인트 ============================== #
+# update required
 map = world.get_map()
 waypoint = world.get_map().get_waypoint
 
@@ -144,7 +144,7 @@ bp_lib = world.get_blueprint_library()
 
 # ============================== 차량 ============================== #
 my_car_bp = bp_lib.filter('vehicle.tesla.model3')[0]
-spawn_0 = carla.Transform(carla.Location(x=-5,y=12.7,z=5),carla.Rotation(pitch=0,yaw=180,roll=0))
+spawn_0 = carla.Transform(carla.Location(x=-5,y=12.7,z=1),carla.Rotation(pitch=0,yaw=180,roll=0))
 
 car_list = ['vehicle.volkswagen.t2_2021','vehicle.vespa.zx125','vehicle.mercedes.sprinter',
             'vehicle.carlamotors.carlacola','vehicle.tesla.model3','vehicle.mercedes.coupe_2020',
@@ -162,7 +162,7 @@ for i in range(len(car_list)):
 
 # ============================== 관전자 ============================== #
 spectator = world.get_spectator()
-spectator.set_transform(spawn_0)
+spectator.set_transform(carla.Transform(carla.Location(x=-5,y=12.7,z=5),carla.Rotation(pitch=0,yaw=180,roll=0)))
 
 # ============================== 카메라 ============================== #
 cam_transform = carla.Transform(carla.Location(x=0.5, z=1.7))
@@ -227,24 +227,9 @@ radar_init_trans = carla.Transform(carla.Location(z=2))
 point_list = o3d.geometry.PointCloud()
 radar_list = o3d.geometry.PointCloud()
 
-# Open3D visualiser for LIDAR and RADAR
-vis = o3d.visualization.Visualizer()
-vis.create_window(
-    window_name='Carla Lidar',
-    width=960,
-    height=540,
-    left=480,
-    top=270)
-vis.get_render_option().background_color = [0.05, 0.05, 0.05]
-vis.get_render_option().point_size = 1
-vis.get_render_option().show_coordinate_frame = True
-add_open3d_axis(vis)
-
-
 # ============================== 보행자 ============================== #
 spawn_location_walker = carla.Transform(carla.Location(x=-35, y=2.7, z=3.0),carla.Rotation(pitch=0, yaw=180, roll=0))
 walker_bp = bp_lib.filter('walker.pedestrian.*')[3]
-
 
 # ============================== 신호등 ============================== #
 t_lights = world.get_actors().filter("*traffic_light*")
@@ -262,8 +247,9 @@ my_t_light.set_yellow_time(0.5)
 my_t_light.set_red_time(0.5)
 my_t_light.set_state(carla.TrafficLightState.Green)
 
-
+# ============================== 파이게임 화면 ============================== #
 display = pygame.display.set_mode((800, 600),pygame.HWSURFACE | pygame.DOUBLEBUF)
+
 
 frame = 0
 
@@ -272,6 +258,7 @@ generate = False
 cameraOn = False
 trafficOn = False
 quitGame = False
+lidarRadarOn = False
 
 cv2.waitKey(1)
 
@@ -299,6 +286,21 @@ while True:
         imu_sensor.listen(lambda event: imu_callback(event, imu_data))
         lidar.listen(lambda data: lidar_callback(data, point_list))
         radar.listen(lambda data: radar_callback(data, radar_list))
+
+        # Open3D visualiser for LIDAR and RADAR
+        if lidarRadarOn == False:
+            vis = o3d.visualization.Visualizer()
+            vis.create_window(
+                window_name='LiDAR and RADAR',
+                width=960,
+                height=540,
+                left=480,
+                top=270)
+            vis.get_render_option().background_color = [0.05, 0.05, 0.05]
+            vis.get_render_option().point_size = 1
+            vis.get_render_option().show_coordinate_frame = True
+            add_open3d_axis(vis)
+            lidarRadarOn = True
 
         print("!!! initialized !!!")
         control = carla.VehicleControl()
@@ -449,16 +451,17 @@ while True:
     # Draw the compass
     draw_compass(rgb_data['rgb_image'], imu_data['imu']['compass'])
 
-    if frame == 2:
-        vis.add_geometry(point_list)
-        vis.add_geometry(radar_list)
-    vis.update_geometry(point_list)
-    vis.update_geometry(radar_list)
-    vis.poll_events()
-    vis.update_renderer()
-    # # This can fix Open3D jittering issues:
-    time.sleep(0.005)
-    frame += 1
+    if lidarRadarOn == True:
+        if frame == 2:
+            vis.add_geometry(point_list)
+            vis.add_geometry(radar_list)
+        vis.update_geometry(point_list)
+        vis.update_geometry(radar_list)
+        vis.poll_events()
+        vis.update_renderer()
+        # # This can fix Open3D jittering issues:
+        time.sleep(0.005)
+        frame += 1
 
     if cameraOn == True:
         rds = np.concatenate((rgb_data['rgb_image'], depth_data['depth_image'], sem_data['sem_image']), axis=1)
