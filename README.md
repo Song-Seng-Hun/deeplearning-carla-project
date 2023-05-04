@@ -38,10 +38,13 @@
 
 ## 코드 설명
 ### docker
+- Dockerfile
+- requirements.txt
 ### carla
+- carla_scenario.py :
 ### yolo
-- ~.py :
-- ~.ipynb :
+- yolo_train.ipynb :
+- dataprocessing.ipynb : 여러 데이터셋들의 데이터 라벨들의 인덱스을 원하는 라벨의 인덱스로 바꿔서 적합한 비율로 합치는 코드 
 
 ## 데이터
 ### [roboflow](https://universe.roboflow.com/)
@@ -56,3 +59,8 @@ carla_dataset1, carla_dataset2의 데이터를 기반으로 횡단보도, 신호
 - [학습 완료된 pt 파일]()
 ### 기타
 - [발표 PPT 파일](https://docs.google.com/presentation/d/1ndLPQ3ZGaDhEzL4bOqJjLXx3oib0LuxKsohafno7ztk/edit?usp=sharing)
+## 참조
+- [nvidia container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+- [docker](https://docs.docker.com/engine/install/ubuntu/)
+- [carla github](https://github.com/carla-simulator/carla)
+- [ultralytics docs](https://docs.ultralytics.com/)
