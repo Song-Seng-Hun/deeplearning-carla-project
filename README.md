@@ -17,4 +17,4 @@
 ## 프로젝트 진행 과정
 
 ## 데이터 출처
-- 발표 PPT 파일 (구글 슬라이드 링크):
+- [발표 PPT 파일](https://docs.google.com/presentation/d/1ndLPQ3ZGaDhEzL4bOqJjLXx3oib0LuxKsohafno7ztk/edit?usp=sharing):
