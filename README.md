@@ -43,7 +43,7 @@
 - ~.py :
 - ~.ipynb :
 
-## 데이터 출처
+## 데이터
 ### [roboflow](https://universe.roboflow.com/)
 - [carla dataset1](https://universe.roboflow.com/carladataset-qxhsv/carla_dataset)
 - [carla dataset2](https://universe.roboflow.com/alec-hantson-student-howest-be/carla-izloa)
@@ -51,6 +51,8 @@
 - [신호등 보강 dataset (제작)](https://universe.roboflow.com/amrws/dl_project_merge)
 - [횡단보도 위 사람 보강 dataset (제작)](https://universe.roboflow.com/amrws/pedesatrian-crosswalks)
 carla_dataset1, carla_dataset2의 데이터를 기반으로 횡단보도, 신호등, 보행자 dataset을 보강해서 사용
-  
+### 딥러닝 모델
+#### [ultralytics yolov8](https://docs.ultralytics.com/)
+- [학습 완료된 pt 파일]()
 ### 기타
 - [발표 PPT 파일](https://docs.google.com/presentation/d/1ndLPQ3ZGaDhEzL4bOqJjLXx3oib0LuxKsohafno7ztk/edit?usp=sharing)
