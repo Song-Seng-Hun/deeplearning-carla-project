@@ -315,18 +315,18 @@ while True:
     # if my_t_light.get_state() == carla.libcarla.TrafficLightState.Red and objectExist == True:
     #     vehicle.apply_control(carla.VehicleControl(throttle=0.3,steer=0))
 
-    if objectExist == True:                                                         # 직진 종료
-        if vehicle.get_location().x < -64:
-            print("x:%f " % vehicle.get_location().x +", " + "y:%f " % vehicle.get_location().y)
-            remove()
-            objectExist = False
-            cameraOn = False
-            quitGame = True
-            break
-        else:
-            pass
-    else:
-        pass
+    # if objectExist == True:                                                         # 직진 종료
+    #     if vehicle.get_location().x < -64:
+    #         print("x:%f " % vehicle.get_location().x +", " + "y:%f " % vehicle.get_location().y)
+    #         remove()
+    #         objectExist = False
+    #         cameraOn = False
+    #         quitGame = True
+    #         break
+    #     else:
+    #         pass
+    # else:
+    #     pass
 
     # if objectExist == True:                                                         # 우회전 시작
     #     if vehicle.get_location().x <= -29.1 and \
@@ -370,6 +370,7 @@ while True:
         for i,car in enumerate(car_on_location_list):
             car.set_autopilot(False)
 
+    
     for event in pygame.event.get() :                                               # 키보드 이벤트 
         if event.type == pygame.KEYDOWN:           
             if event.key == pygame.K_ESCAPE:                                        # 오브젝트 정리 및 세션 종료
@@ -403,24 +404,36 @@ while True:
                 elif autoPilotEnable == True:
                     autoPilotEnable = False
                     print("car_on_locatiob autopilot disabled")
-                    
-            # if event.key == pygame.
-            if event.key == pygame.K_w:
-                control.reverse = False
-                w = w + 0.1
-                vehicle.apply_control(carla.VehicleControl(throttle=w,steer=0))
-                print(w)
-            if event.key == pygame.K_s:
-                vehicle.apply_control(carla.VehicleControl(throttle=0,steer=0))
-                control.reverse = True
-                d = d + 0.1
-                vehicle.apply_control(carla.VehicleControl(throttle=-d,steer=0))
-                print(d)
-            if event.key == pygame.K_d:
-                # vehicle.apply_control(carla.VehicleControl(throttle=-d,steer=0))
-                control.steer = min(1., max(control.steer + 0.05, 0))
-            elif event.key == pygame.K_a:
-                control.steer = max(-1., min(control.steer - 0.05, 0))
+            if generate == True:
+                control = vehicle.get_control()
+                if event.key == pygame.K_w:
+                    control.throttle = 1
+                    control.reverse = False
+                elif event.key == pygame.K_s:
+                    control.throttle = 1
+                    control.reverse = True
+
+                if event.key == pygame.K_a:
+                    control.steer = max(-1., min(control.steer - 0.05, 0))
+                elif event.key == pygame.K_d:
+                    control.steer = min(1., max(control.steer + 0.05, 0))
+
+            # # if event.key == pygame.
+            # if event.key == pygame.K_w:
+            #     control.reverse = False
+            #     w = w + 0.1
+            #     vehicle.apply_control(carla.VehicleControl(throttle=w,steer=0))
+            #     print(w)
+            # if event.key == pygame.K_s:
+            #     control.reverse = True
+            #     d = d + 0.1
+            #     vehicle.apply_control(carla.VehicleControl(throttle=d,steer=0))
+            #     print(d)
+            # if event.key == pygame.K_d:
+            #     # vehicle.apply_control(carla.VehicleControl(throttle=-d,steer=0))
+            #     control.steer = min(1., max(control.steer + 0.05, 0))
+            # elif event.key == pygame.K_a:
+            #     control.steer = max(-1., min(control.steer - 0.05, 0))
 
 
             # if event.key == pygame.K_d:
