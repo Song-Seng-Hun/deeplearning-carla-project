@@ -403,6 +403,7 @@ while True:
                 elif autoPilotEnable == True:
                     autoPilotEnable = False
                     print("car_on_locatiob autopilot disabled")
+                    
             # if event.key == pygame.
             if event.key == pygame.K_w:
                 control.reverse = False
@@ -420,6 +421,7 @@ while True:
                 control.steer = min(1., max(control.steer + 0.05, 0))
             elif event.key == pygame.K_a:
                 control.steer = max(-1., min(control.steer - 0.05, 0))
+
 
             # if event.key == pygame.K_d:
             #     control.steer = max(-1., min(control.steer - 0.05, 0))
