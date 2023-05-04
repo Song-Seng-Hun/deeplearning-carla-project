@@ -35,7 +35,5 @@
 - ~.py :
 - ~.ipynb :
 
-## 프로젝트 진행 과정
-
 ## 데이터 출처
 - [발표 PPT 파일](https://docs.google.com/presentation/d/1ndLPQ3ZGaDhEzL4bOqJjLXx3oib0LuxKsohafno7ztk/edit?usp=sharing)
