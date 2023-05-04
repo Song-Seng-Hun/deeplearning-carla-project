@@ -27,6 +27,8 @@
 ![image](https://user-images.githubusercontent.com/69943723/236137346-4f88a7be-e307-47c4-8f67-8469978420b3.png)
 ![image](https://user-images.githubusercontent.com/69943723/236137375-3fafc5e3-1daa-408b-9198-894095617aa9.png)
 ![yolo](https://user-images.githubusercontent.com/69943723/236143303-1449d493-7794-4347-87b2-d886f376bdeb.gif)
+![image](https://user-images.githubusercontent.com/69943723/236143561-f3d84f55-1cfe-4f24-84c9-69ebbb87f136.png)
+![image](https://user-images.githubusercontent.com/69943723/236143608-1b84e56e-44e5-4543-9234-009253f9aa71.png)
 
 ## 그 외 시도
 ![image](https://user-images.githubusercontent.com/69943723/236137875-1eefc5db-875c-4aad-9d58-284599fdc1a5.png)
