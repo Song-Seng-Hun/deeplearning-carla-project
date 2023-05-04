@@ -10,6 +10,9 @@
 ![image](https://user-images.githubusercontent.com/69943723/236127279-186a3469-cff3-4ad4-8009-26bd7ee2f84b.png)
 
 ## 주제 선정 배경
+![image](https://user-images.githubusercontent.com/69943723/236127436-4b56bd91-e93a-4fc0-ab4e-8469725d4482.png)
+
+
 ## 코드 설명
 - ~.py :
 - ~.ipynb :
@@ -17,4 +20,4 @@
 ## 프로젝트 진행 과정
 
 ## 데이터 출처
-- [발표 PPT 파일](https://docs.google.com/presentation/d/1ndLPQ3ZGaDhEzL4bOqJjLXx3oib0LuxKsohafno7ztk/edit?usp=sharing):
+- [발표 PPT 파일](https://docs.google.com/presentation/d/1ndLPQ3ZGaDhEzL4bOqJjLXx3oib0LuxKsohafno7ztk/edit?usp=sharing)
