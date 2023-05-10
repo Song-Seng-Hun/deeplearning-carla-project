@@ -34,6 +34,7 @@
 ![image](https://user-images.githubusercontent.com/69943723/236143608-1b84e56e-44e5-4543-9234-009253f9aa71.png)
 
 ## 시연 영상
+-[유튜브 링크](https://youtu.be/5GZHaqp7ENA)
 
 ## 그 외 시도
 ![image](https://user-images.githubusercontent.com/69943723/236137875-1eefc5db-875c-4aad-9d58-284599fdc1a5.png)
