@@ -1,4 +1,7 @@
 # CARLA-project  
+![image](https://github.com/DL-project-team/CARLA-project/assets/69943723/b8c8f2d8-58ca-4bb9-90c9-a4148d1987fb)
+
+
 [image.webm](https://github.com/DL-project-team/CARLA-project/assets/69943723/e06b6d12-480a-4276-a15e-a1ee2b3e7ad3)
 ## 조원 소개
 - [성용호](https://github.com/DL-project-team/CARLA-project/tree/test_syh)
