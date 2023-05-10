@@ -60,7 +60,9 @@
 carla_dataset1, carla_dataset2의 데이터를 기반으로 횡단보도, 신호등, 보행자 dataset을 보강해서 사용
 ### 딥러닝 모델
 #### [ultralytics yolov8](https://docs.ultralytics.com/)
-- [학습 완료된 pt 파일]()
+- [학습 완료된 pt 파일들](https://drive.google.com/drive/folders/1WKXGFqITRNHN69JPrxvpcNPgI0d-Xtc6?usp=sharing)
+- 기존에 학습시켰던 모든 모델.
+- best_ver8.pt가 제일 최신이다.
 ### 기타
 - [발표 PPT 파일](https://docs.google.com/presentation/d/1ndLPQ3ZGaDhEzL4bOqJjLXx3oib0LuxKsohafno7ztk/edit?usp=sharing)
 ## 참조
