@@ -45,9 +45,9 @@
 - Dockerfile
 - requirements.txt
 ### carla
-- carla_scenario.py :
+- carla_scenario.py : 차량 수동 조작 및 우회전 시나리오를 실행시키기 위한 코드
 ### yolo
-- yolo_train.ipynb :
+- yolo_train.ipynb : 데이터셋을 yolov8m 모델로 학습시키는 코드
 - dataprocessing.ipynb : 여러 데이터셋들의 데이터 라벨들의 인덱스을 원하는 라벨의 인덱스로 바꿔서 적합한 비율로 합치는 코드 
 
 ## 데이터
@@ -61,8 +61,8 @@ carla_dataset1, carla_dataset2의 데이터를 기반으로 횡단보도, 신호
 ### 딥러닝 모델
 #### [ultralytics yolov8](https://docs.ultralytics.com/)
 - [학습 완료된 pt 파일들](https://drive.google.com/drive/folders/1WKXGFqITRNHN69JPrxvpcNPgI0d-Xtc6?usp=sharing)
-- 기존에 학습시켰던 모든 모델.
-- best_ver8.pt가 제일 최신이다.
+  - 기존에 학습시켰던 모든 모델.
+  - best_ver8.pt가 제일 최신이다.
 ### 기타
 - [발표 PPT 파일](https://docs.google.com/presentation/d/1ndLPQ3ZGaDhEzL4bOqJjLXx3oib0LuxKsohafno7ztk/edit?usp=sharing)
 ## 참조
