@@ -1,5 +1,5 @@
 # CARLA-project  
-![image](https://user-images.githubusercontent.com/69943723/236127249-c9bbeae3-f88c-4310-b467-0db4c38a4594.png)
+[image.webm](https://github.com/DL-project-team/CARLA-project/assets/69943723/e06b6d12-480a-4276-a15e-a1ee2b3e7ad3)
 ## 조원 소개
 - [성용호](https://github.com/DL-project-team/CARLA-project/tree/test_syh)
 - [송승훈](https://github.com/DL-project-team/CARLA-project/tree/test_ssh)
