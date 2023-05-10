@@ -8,7 +8,7 @@ pygame
 matplotlib
 open3d
 Pillow
-carla
+carla==0.9.13
 opencv-python==4.1.2.30
 tensorflow==2.3.0
 torch
